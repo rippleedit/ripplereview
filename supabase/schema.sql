@@ -76,6 +76,14 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Logins created before this file was run get their profile now;
+-- the oldest of them becomes the admin.
+insert into public.profiles (id, email, name, is_admin)
+select id, coalesce(email, ''), coalesce(raw_user_meta_data ->> 'name', ''),
+       row_number() over (order by created_at) = 1
+from auth.users
+on conflict (id) do nothing;
+
 -- Author fields are filled in by the database, so nobody can post as someone else.
 create function public.stamp_comment() returns trigger
 language plpgsql security definer set search_path = '' as $$
