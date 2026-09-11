@@ -1,0 +1,31 @@
+:root {
+  --black: #050505;
+  --black-soft: #0a0a0a;
+  --panel: #101010;
+  --white: #f2f0ea;
+  --white-88: rgba(242, 240, 234, 0.88);
+  --white-76: rgba(242, 240, 234, 0.76);
+  --white-64: rgba(242, 240, 234, 0.64);
+  --white-52: rgba(242, 240, 234, 0.52);
+  --white-28: rgba(242, 240, 234, 0.28);
+  --white-14: rgba(242, 240, 234, 0.14);
+  --white-08: rgba(242, 240, 234, 0.08);
+  --signal: #ff3d17;
+  --font-sans: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "DM Mono", "SFMono-Regular", Consolas, monospace;
+  --gutter: clamp(1rem, 3.25vw, 3.5rem);
+  /* Sections open with air and close tight, so the space between two of them
+     reads as one considered gap rather than two paddings meeting. */
+  --section-lead: clamp(4.5rem, 7.5vw, 8rem);
+  --section-tail: clamp(2.5rem, 4.2vw, 4.5rem);
+  --radius-small: 4px;
+  --radius-media: 10px;
+  --radius-control: 999px;
+  /* Type floor for mono UI labels. Nothing in the interface goes below this. */
+  --fs-label: 0.75rem;
+  --fs-small: 0.8125rem;
+  --fs-body: 0.9375rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-cut: cubic-bezier(0.76, 0, 0.24, 1);
+  --max-width: 1760px;
+}
