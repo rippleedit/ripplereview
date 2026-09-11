@@ -173,3 +173,7 @@ grant execute on function public.is_admin(), public.my_folder(), public.can_see(
 
 -- Nothing is open to logged-out visitors.
 revoke all on public.profiles, public.comments, public.approvals from anon;
+
+-- Keep-awake ping (see .github/workflows/keep-awake.yml). Returns 1, reads nothing.
+create or replace function public.ping() returns int language sql as 'select 1';
+grant execute on function public.ping() to anon;

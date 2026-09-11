@@ -1,0 +1,27 @@
+# Supabase's free plan pauses a project after 7 days without activity.
+# This pings the database every three days so RippleReview stays awake.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the database
+        run: |
+          curl -fsS -X POST "https://btwfdctachysmcfhlacc.supabase.co/rest/v1/rpc/ping" \
+            -H "apikey: sb_publishable_8owax7EQNZbSqqyc1oVrlg_Eg3c2uvJ" \
+            -H "Content-Type: application/json" -d '{}'
+      # GitHub switches off scheduled jobs in repos without activity for 60
+      # days. Re-enabling this workflow each run keeps it on.
+      - name: Keep this schedule enabled
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keep-awake.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
