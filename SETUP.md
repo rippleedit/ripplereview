@@ -39,8 +39,8 @@ In Supabase → **Project Settings → API**, copy the **Project URL** and the *
 
 ## 5. Domain
 
-At your domain provider (IONOS), for `review.ripple-edit.com`:
-delete the existing A record, add a **CNAME** `review` → `rippleedit.github.io`.
+At your domain provider (STRATO), for `review.ripple-edit.com`:
+set the subdomain's **CNAME** record to `rippleedit.github.io` (this replaces its A record).
 
 ## Daily use
 
