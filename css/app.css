@@ -1323,3 +1323,31 @@ body { overflow: hidden; }
   .home-head p { display: none; }
   .band-cell { padding: 0.8rem 0.9rem; }
 }
+
+/* Ticking a note off should be felt, not guessed at. */
+.note { transition: background-color 180ms ease, opacity 260ms ease; }
+.note-check[aria-pressed="true"] {
+  border-color: rgba(62, 207, 166, 0.55);
+  background: rgba(62, 207, 166, 0.16);
+  color: #56dcb4;
+}
+.note:hover .note-check[aria-pressed="true"] { border-color: rgba(62, 207, 166, 0.75); color: #6ee7c0; }
+.note.is-done > .note-body { color: var(--white-52); }
+.note.is-done .note-index { background: var(--white-14); color: var(--white-52); }
+
+/* A short flash in the state's own colour, so the change is unmistakable. */
+.note.just-done { animation: note-done 620ms var(--ease-out); }
+.note.just-open { animation: note-open 620ms var(--ease-out); }
+@keyframes note-done {
+  0% { background: rgba(62, 207, 166, 0.22); }
+  100% { background: transparent; }
+}
+@keyframes note-open {
+  0% { background: rgba(255, 61, 23, 0.16); }
+  100% { background: transparent; }
+}
+.note.just-done .note-check { animation: check-pop 420ms var(--ease-out); }
+@keyframes check-pop { 40% { transform: scale(1.25); } }
+
+/* When the current filter no longer holds it, it leaves rather than blinks out. */
+.note.is-leaving { opacity: 0; transform: translateX(12px); transition: opacity 260ms ease, transform 260ms var(--ease-out); }

@@ -544,12 +544,17 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   };
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
 
-  function renderNotes() {
+  function renderCounts() {
     const all = numbered();
     const open = all.filter((c) => !c.done).length;
     $("[data-count-all]").textContent = all.length || "";
     $("[data-count-open]").textContent = open || "";
     $("[data-count-done]").textContent = all.length - open || "";
+  }
+
+  function renderNotes() {
+    const all = numbered();
+    renderCounts();
     const shown = all.filter((c) => state.filter === "all" || (state.filter === "done" ? c.done : !c.done));
 
     const reply = (r) => `
@@ -627,11 +632,32 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     const check = event.target.closest("[data-done]");
     if (check) {
       const note = state.comments.find((c) => c.id === id);
+      const done = !note.done;
+
+      // Change this row in place so the tick, the fade and the flash are seen;
+      // re-rendering the list would swap the DOM and show nothing at all.
+      item.classList.toggle("is-done", done);
+      item.classList.add(done ? "just-done" : "just-open");
+      check.setAttribute("aria-pressed", String(done));
+      check.title = done ? "Mark as open" : "Mark as done";
+      setTimeout(() => item.classList.remove("just-done", "just-open"), 700);
+
       try {
-        const row = await api.updateComment(id, { done: !note.done });
+        const row = await api.updateComment(id, { done });
         note.done = row.done;
-        renderAll();
-      } catch (error) { toast(error.message); }
+        renderCounts();
+        renderMarks();
+        renderPins();
+        // In a filtered list the note has just left the list it was in.
+        if ((state.filter === "open" && done) || (state.filter === "done" && !done)) {
+          item.classList.add("is-leaving");
+          setTimeout(renderNotes, 320);
+        }
+      } catch (error) {
+        item.classList.toggle("is-done", !done);
+        check.setAttribute("aria-pressed", String(!done));
+        toast(error.message);
+      }
       return;
     }
     if (event.target.closest("[data-reply-form]")) return;
