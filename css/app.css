@@ -508,35 +508,37 @@ body { overflow: hidden; }
 
 /* Admin: clients ---------------------------------------------------------- */
 
-.clients-layout {
+/* Clients: compact cards, sized so a handful of them fill the page without
+   the dead space a full-width row leaves behind. */
+.client-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
-  gap: clamp(1.5rem, 3vw, 3rem);
-  align-items: start;
-  margin-top: clamp(2.2rem, 4vw, 3.4rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 248px), 1fr));
+  gap: 0.9rem;
+  margin-top: 1.4rem;
 }
-.client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 1.2rem; }
-.client-card { display: grid; align-content: start; gap: 1rem; padding: 1.3rem; border: 1px solid var(--white-14); border-radius: var(--radius-media); background: var(--black-soft); }
-.client-card--warn { border-color: rgba(255, 61, 23, 0.4); }
-.client-card h2 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; }
-.client-card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.client-card-head span { color: var(--white-52); transition: transform 300ms var(--ease-out), color 200ms ease; }
-.client-card-head:hover span { color: var(--signal); transform: translateX(3px); }
-.client-card-empty { color: var(--white-52); font-size: var(--fs-small); }
-.login-list { display: grid; gap: 0.6rem; margin: 0; padding: 0.9rem 0 0; border-top: 1px solid var(--white-08); list-style: none; }
-.login-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; }
-.login-email { font-size: var(--fs-small); color: var(--white-76); overflow-wrap: anywhere; }
-.login-actions { display: flex; gap: 0.9rem; }
 
-.panel { position: sticky; top: 90px; display: grid; gap: 1.4rem; padding: 1.4rem; border: 1px solid var(--white-14); border-radius: var(--radius-media); background: var(--black-soft); }
-.handoff { display: grid; gap: 0.8rem; justify-items: start; padding-top: 1.2rem; border-top: 1px solid var(--white-08); }
-.handoff-title { font: 500 var(--fs-label) / 1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); }
-.handoff pre { width: 100%; padding: 0.9rem; overflow-x: auto; border: 1px solid var(--white-08); border-radius: var(--radius-small); background: var(--black); font: 0.78rem / 1.6 var(--font-mono); color: var(--white-76); white-space: pre-wrap; overflow-wrap: anywhere; }
-
-@media (max-width: 900px) {
-  .clients-layout { grid-template-columns: 1fr; }
-  .panel { position: static; }
+.client-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--white-08);
+  border-radius: var(--radius-media);
+  background: var(--black-soft);
+  transition: border-color 200ms ease, background-color 200ms ease, transform 300ms var(--ease-out);
 }
+.client-card:hover { border-color: var(--white-14); background: #121212; transform: translateY(-2px); }
+.client-card--warn { border-color: rgba(255, 61, 23, 0.35); }
+
+.client-card-main { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.client-card-name { display: grid; gap: 0.1rem; min-width: 0; }
+.client-card-name strong { overflow: hidden; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.015em; text-overflow: ellipsis; white-space: nowrap; }
+.client-card-name > span { overflow: hidden; color: var(--white-28); font: 400 0.6875rem / 1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.client-card-none { color: var(--signal) !important; text-transform: uppercase; letter-spacing: 0.06em; }
+
+.client-card-tools { display: flex; align-items: center; gap: 0.15rem; padding-top: 0.7rem; border-top: 1px solid var(--white-08); }
+.client-card-tools .button { margin-left: auto; }
+
+
 
 /* Review ------------------------------------------------------------------ */
 

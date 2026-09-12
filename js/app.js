@@ -605,25 +605,26 @@ async function renderClients() {
     return renderMessage("Couldn't load clients", error.message);
   }
 
-  const row = (folder, login) => `
-    <div class="row" data-folder="${esc(folder)}">
-      ${avatar(folder, { size: "md", src: login?.avatar })}
-      <a class="row-name" href="${href.space(folder)}">
-        <strong>${esc(folder)}</strong>
-        <span>Apps/RippleReview/${esc(folder)}</span>
+  const card = (folder, login) => `
+    <article class="client-card">
+      <a class="client-card-main" href="${href.space(folder)}">
+        ${avatar(folder, { size: "md", src: login?.avatar })}
+        <span class="client-card-name">
+          <strong>${esc(folder)}</strong>
+          <span class="${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
+        </span>
       </a>
-      <span class="row-detail ${login ? "" : "row-detail--none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
-      <span class="row-actions">
+      <div class="client-card-tools">
         ${login ? `
           <button class="icon-button" type="button" data-edit="${esc(login.id)}" title="Edit client" aria-label="Edit ${esc(folder)}">${svg("settings")}</button>
           <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
           <button class="icon-button" type="button" data-reset="${esc(login.id)}" title="New password" aria-label="New password for ${esc(folder)}">${svg("key")}</button>
-          <button class="icon-button" type="button" data-remove="${esc(login.id)}" title="Remove login" aria-label="Remove login for ${esc(folder)}">${svg("trash")}</button>`
-        : `<button class="button button--compact" type="button" data-add-for="${esc(folder)}">Add login</button>`}
-      </span>
-    </div>`;
+          <button class="icon-button" type="button" data-remove="${esc(login.id)}" title="Delete login" aria-label="Delete login for ${esc(folder)}">${svg("trash")}</button>`
+        : `<button class="button button--compact" type="button" data-add-for="${esc(folder)}">${svg("plus")} Add login</button>`}
+      </div>
+    </article>`;
 
-  const rows = data.folders.flatMap((f) => f.logins.length ? f.logins.map((l) => row(f.folder, l)) : [row(f.folder, null)]).join("");
+  const cards = data.folders.flatMap((f) => f.logins.length ? f.logins.map((l) => card(f.folder, l)) : [card(f.folder, null)]).join("");
 
   view.innerHTML = `
     <section class="page">
@@ -635,20 +636,24 @@ async function renderClients() {
         </div>
       </div>
 
-      ${rows ? `<div class="rows">${rows}</div>` : `<div class="empty"><p>No clients yet.</p><p class="empty-sub">Add your first one to create their folder and login.</p></div>`}
+      ${cards ? `<div class="client-grid">${cards}</div>` : `<div class="empty"><p>No clients yet.</p><p class="empty-sub">Add your first one to create their folder and login.</p></div>`}
 
       ${data.orphans.length ? `
         <div class="page-head" style="margin-top:2rem"><h2 class="page-title">Logins without a folder</h2><p class="page-sub">The Dropbox folder these point at is gone.</p></div>
-        <div class="rows">${data.orphans.map((l) => `
-          <div class="row">
-            ${avatar(l.client_folder || l.email, { size: "md" })}
-            <span class="row-name"><strong>${esc(l.client_folder || "—")}</strong></span>
-            <span class="row-detail">${esc(loginName(l.email))}</span>
-            <span class="row-actions">
+        <div class="client-grid">${data.orphans.map((l) => `
+          <article class="client-card client-card--warn">
+            <div class="client-card-main">
+              ${avatar(l.client_folder || l.email, { size: "md" })}
+              <span class="client-card-name">
+                <strong>${esc(l.client_folder || "—")}</strong>
+                <span>${esc(loginName(l.email))}</span>
+              </span>
+            </div>
+            <div class="client-card-tools">
               <button class="icon-button" type="button" data-reset="${esc(l.id)}" title="New password">${svg("key")}</button>
-              <button class="icon-button" type="button" data-remove="${esc(l.id)}" title="Remove login">${svg("trash")}</button>
-            </span>
-          </div>`).join("")}</div>` : ""}
+              <button class="icon-button" type="button" data-remove="${esc(l.id)}" title="Delete login">${svg("trash")}</button>
+            </div>
+          </article>`).join("")}</div>` : ""}
     </section>`;
 
   const findLogin = (id) => [...data.folders.flatMap((f) => f.logins.map((l) => ({ ...l, folder: f.folder }))), ...data.orphans.map((l) => ({ ...l, folder: l.client_folder }))].find((l) => l.id === id);
