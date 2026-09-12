@@ -156,7 +156,7 @@ export function demoApi() {
       save();
       return wait(state.statuses.at(-1));
     },
-    async notesSubmitted(fileId) {
+    async notesSubmitted(fileId, _title) {
       const row = { id: crypto.randomUUID(), file_id: fileId, client_folder: me.client_folder?.toLowerCase() ?? "", by_name: me.name, note_count: state.comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length, created_at: new Date().toISOString() };
       state.submissions = [row, ...(state.submissions ?? [])];
       save();

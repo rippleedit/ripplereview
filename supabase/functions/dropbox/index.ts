@@ -33,6 +33,9 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey(), {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -237,6 +240,10 @@ async function notesSubmitted(profile: Profile, body: any) {
     const app = Deno.env.get("APP_URL") ?? "https://review.ripple-edit.com";
     const link = `${app}/#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(fileId)}`;
     const notes = count === 1 ? "1 open note" : `${count ?? 0} open notes`;
+    // The app sends the readable title ("Webinar Funnel - Long form v3");
+    // the file name is only the fallback.
+    const what = escapeHtml(String(body.title ?? "").trim().slice(0, 120) || meta.name);
+    const whoSafe = escapeHtml(who);
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -245,10 +252,11 @@ async function notesSubmitted(profile: Profile, body: any) {
         to: Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
         // Nothing listens on the sending subdomain, so replies go to the studio.
         reply_to: Deno.env.get("NOTIFY_REPLY_TO") ?? Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
-        subject: `${who} finished reviewing ${meta.name}`,
-        html: `<p><strong>${who}</strong> has finished reviewing <strong>${meta.name}</strong>.</p>
-               <p>${notes}.</p>
-               <p><a href="${link}">Open it in RippleReview</a></p>`,
+        subject: `${who} finished reviewing ${String(body.title ?? "").trim().slice(0, 120) || meta.name}`,
+        html: `<p><strong>${whoSafe}</strong> has finished reviewing <strong>${what}</strong>.</p>
+               <p>${notes} waiting for you.</p>
+               <p><a href="${link}">Open it in RippleReview</a></p>
+               <p style="color:#888;font-size:12px">${escapeHtml(meta.name)}</p>`,
       }),
     });
     // A refused email must not lose the submission: it is already recorded.

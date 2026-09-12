@@ -700,8 +700,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       return;
     }
     box.innerHTML = when
-      ? `<span class="handed">${svg("check")} Sent ${esc(when)}</span>
-         <button type="button" class="text-button text-button--small" data-send>Send again</button>`
+      ? `<span class="handed handed--done">
+           ${svg("check")}
+           <span><strong>RippleEdit has your notes</strong><small>Sent ${esc(when)}</small></span>
+         </span>
+         <button type="button" class="button button--compact button--ghost" data-send>${svg("send")} Send again</button>`
       : `<button type="button" class="button button--compact" data-send>${svg("send")} I'm done reviewing</button>`;
   }
 
@@ -718,7 +721,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (!ok) return;
     button.disabled = true;
     try {
-      const result = await api.notesSubmitted(fileId);
+      const result = await api.notesSubmitted(fileId, `${projectName.title} — ${cut.label} v${version.label}`);
       state.submission = result.submission;
       renderHandover();
       toast("Sent to RippleEdit");

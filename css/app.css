@@ -1208,3 +1208,12 @@ body { overflow: hidden; }
 .presence--on { color: #56dcb4; }
 .presence--on i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(62, 207, 166, 0.18); }
 .presence--never { color: var(--white-28); }
+
+/* After a hand-over: what happened, then a quiet way to repeat it. */
+.handed--done { gap: 0.55rem; }
+.handed--done span { display: grid; }
+.handed--done strong { font-size: 0.8125rem; font-weight: 600; color: var(--white); }
+.handed--done small { font-size: 0.6875rem; color: var(--white-52); }
+.handed--done .icon { color: #56dcb4; }
+.handover .button--ghost { border-color: var(--white-14); color: var(--white-52); }
+.handover .button--ghost:hover { border-color: var(--white-28); color: var(--white); background: none; }
