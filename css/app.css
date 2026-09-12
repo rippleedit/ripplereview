@@ -636,10 +636,21 @@ body { overflow: hidden; }
 .client-card:hover { border-color: var(--white-14); background: #121212; transform: translateY(-2px); }
 .client-card--warn { border-color: rgba(255, 61, 23, 0.35); }
 
-.client-card-main { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.client-card-main {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
 .client-card-name { display: grid; gap: 0.1rem; min-width: 0; }
 .client-card-name strong { overflow: hidden; font-size: 0.95rem; font-weight: 600; letter-spacing: -0.015em; text-overflow: ellipsis; white-space: nowrap; }
-.client-card-name > span { overflow: hidden; color: var(--white-28); font: 400 0.6875rem / 1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.client-card-login { overflow: hidden; color: var(--white-28); font: 400 0.6875rem / 1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .client-card-none { color: var(--signal) !important; text-transform: uppercase; letter-spacing: 0.06em; }
 
 .client-card-tools { display: flex; align-items: center; gap: 0.15rem; padding-top: 0.7rem; border-top: 1px solid var(--white-08); }
@@ -1204,7 +1215,7 @@ body { overflow: hidden; }
 .project.is-finished .project-finish { opacity: 1; }
 
 /* Presence, studio side only. */
-.presence { display: inline-flex; align-items: center; gap: 0.35rem; font: 400 0.6875rem / 1.4 var(--font-mono); color: var(--white-28); }
+.presence { display: inline-flex; align-items: center; gap: 0.4rem; padding-left: 1px; font: 400 0.6875rem / 1.4 var(--font-mono); color: var(--white-28); }
 .presence--on { color: #56dcb4; }
 .presence--on i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(62, 207, 166, 0.18); }
 .presence--never { color: var(--white-28); }

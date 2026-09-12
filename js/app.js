@@ -795,16 +795,17 @@ async function renderClients() {
 
   const card = (folder, login) => `
     <article class="client-card">
-      <a class="client-card-main" href="${href.space(folder)}">
+      <button class="client-card-main" type="button" ${login ? `data-edit="${esc(login.id)}"` : `data-add-for="${esc(folder)}"`}>
         ${avatar(folder, { size: "md", src: login?.avatar })}
         <span class="client-card-name">
           <strong>${esc(folder)}${updated(folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}</strong>
-          <span class="${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
+          <span class="client-card-login ${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
           ${login ? presenceLine(login) : ""}
         </span>
-      </a>
+      </button>
       <div class="client-card-tools">
         ${login ? `
+          <a class="icon-button" href="${href.space(folder)}" title="Open their space" aria-label="Open ${esc(folder)}'s space">${svg("folder")}</a>
           <button class="icon-button" type="button" data-edit="${esc(login.id)}" title="Edit client" aria-label="Edit ${esc(folder)}">${svg("settings")}</button>
           <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
           <button class="icon-button" type="button" data-reset="${esc(login.id)}" title="New password" aria-label="New password for ${esc(folder)}">${svg("key")}</button>
