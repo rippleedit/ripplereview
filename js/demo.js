@@ -23,10 +23,10 @@ const LIBRARY = {
         name: "NIL-11 Webinar Funnel",
         modified: day(0.1),
         videos: [
-          { key: "md", title: "_PREVIEW_NIL-11_YT-LF", modified: day(0.1), versions: [
-            file("md1", "_PREVIEW_NIL-11_YT-LF_v1.mp4", 1, 6, 1),
-            file("md2", "_PREVIEW_NIL-11_YT-LF_v2.mp4", 2, 3, 1),
-            file("md3", "_PREVIEW_NIL-11_YT-LF_v3.mp4", 3, 0.1, 0),
+          { key: "md", title: "_PREVIEW_NIL-11_LF", modified: day(0.1), versions: [
+            file("md1", "_PREVIEW_NIL-11_LF_v1.mp4", 1, 6, 1),
+            file("md2", "_PREVIEW_NIL-11_LF_v2.mp4", 2, 3, 1),
+            file("md3", "_PREVIEW_NIL-11_LF_v3.mp4", 3, 0.1, 0),
           ] },
           { key: "md-short", title: "_PREVIEW_NIL-11_SF-01", modified: day(0.4), versions: [
             file("ms1", "_PREVIEW_NIL-11_SF-01_v1.mp4", 1, 0.4, 2),
