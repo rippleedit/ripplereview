@@ -8,6 +8,7 @@
 //   DROPBOX_REFRESH_TOKEN  printed by setup/dropbox-token.mjs
 //   RESEND_API_KEY         for the "client finished reviewing" email
 //   NOTIFY_TO              where that email goes (default info@ripple-edit.com)
+// Optional: NOTIFY_FROM, NOTIFY_REPLY_TO, APP_URL.
 // SUPABASE_URL and the service key are provided by Supabase automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -240,8 +241,10 @@ async function notesSubmitted(profile: Profile, body: any) {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: Deno.env.get("NOTIFY_FROM") ?? "RippleReview <onboarding@resend.dev>",
+        from: Deno.env.get("NOTIFY_FROM") ?? "RippleReview <no-reply@send.ripple-edit.com>",
         to: Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
+        // Nothing listens on the sending subdomain, so replies go to the studio.
+        reply_to: Deno.env.get("NOTIFY_REPLY_TO") ?? Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
         subject: `${who} finished reviewing ${meta.name}`,
         html: `<p><strong>${who}</strong> has finished reviewing <strong>${meta.name}</strong>.</p>
                <p>${notes}.</p>
