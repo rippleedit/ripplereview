@@ -455,12 +455,18 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   });
 
   // The studio signs its notes "Razz @ RippleEdit": the person, then the company.
-  const authorLabel = (c) => `
+  // The name comes from the author's profile when we can see it, so changing
+  // your name updates every note you have ever written. Never show an address.
+  const authorLabel = (c) => {
+    const person = state.people.get(c.author_id);
+    const name = person?.name?.trim() || String(c.author_name || "").split("@")[0] || "Someone";
+    return `
     <span class="note-who">
-      ${avatar(c.author_name, { studio: c.author_is_admin, src: state.people.get(c.author_id)?.avatar })}
-      <span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(c.author_name || "Someone")}</span>
+      ${avatar(name, { studio: c.author_is_admin, src: person?.avatar })}
+      <span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(name)}</span>
       ${c.author_is_admin ? `<span class="note-org">@ RippleEdit</span>` : ""}
     </span>`;
+  };
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
 
   function renderNotes() {

@@ -92,7 +92,7 @@ declare p public.profiles;
 begin
   select * into p from public.profiles where id = auth.uid();
   new.author_id := auth.uid();
-  new.author_name := coalesce(nullif(p.name, ''), p.email, '');
+  new.author_name := coalesce(nullif(p.name, ''), split_part(coalesce(p.email, ''), '@', 1), 'Someone');
   new.author_is_admin := coalesce(p.is_admin, false);
   new.client_folder := lower(new.client_folder);
   new.done := false;
@@ -123,7 +123,7 @@ declare p public.profiles;
 begin
   select * into p from public.profiles where id = auth.uid();
   new.approved_by := auth.uid();
-  new.approved_name := coalesce(nullif(p.name, ''), p.email, '');
+  new.approved_name := coalesce(nullif(p.name, ''), split_part(coalesce(p.email, ''), '@', 1), 'Someone');
   new.client_folder := lower(new.client_folder);
   new.approved_at := now();
   return new;
