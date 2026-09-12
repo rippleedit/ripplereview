@@ -495,14 +495,16 @@ body { overflow: hidden; }
   display: grid;
   gap: 0.6rem;
   align-content: start;
-  /* Width follows the shape exactly: 16:9 wide, 9:16 narrow. No minimum,
-     or a short would be stretched back towards a landscape box. */
-  width: calc(var(--shot-h) * var(--ar, 1.7778));
+  /* The thumbnail keeps its exact shape; the card underneath may be a little
+     wider on small screens so the status badge never wraps. */
+  width: max(calc(var(--shot-h) * var(--ar, 1.7778)), 152px);
   max-width: 100%;
 }
 .video-thumb {
   position: relative;
   overflow: hidden;
+  width: calc(var(--shot-h) * var(--ar, 1.7778));
+  max-width: 100%;
   height: var(--shot-h);
   border: 1px solid var(--white-14);
   border-radius: var(--radius-media);
