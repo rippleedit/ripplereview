@@ -566,6 +566,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           <div class="note-top">
             <span class="note-index">${c.n}</span>
             ${c.time_sec != null ? `<span class="note-tc">${timecode(c.time_sec, state.fps)}</span>` : `<span class="note-tc note-tc--general">General</span>`}
+            ${!profile.is_admin && sentAt() && c.created_at > sentAt() ? `<span class="tag tag--quiet tag--mini" title="Not sent to RippleEdit yet">Not sent</span>` : ""}
             ${c.pin_x != null ? `<span class="note-mark" title="Points at a spot">${svg("pin")}</span>` : ""}
             ${c.drawing?.length ? `<span class="note-mark" title="Has a drawing">${svg("draw")}</span>` : ""}
             <span class="note-tools">
@@ -687,6 +688,13 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     }
   }
 
+  // Notes written after the last hand-over haven't reached the studio yet.
+  const sentAt = () => state.submission?.created_at ?? null;
+  const unsent = () => {
+    const since = sentAt();
+    return state.comments.filter((c) => !c.parent_id && (!since || c.created_at > since));
+  };
+
   // "I'm done" - the client tells the studio the review is finished, which
   // sends one email and leaves a mark in the app.
   function renderHandover() {
@@ -699,23 +707,31 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         : "";
       return;
     }
-    box.innerHTML = when
-      ? `<span class="handed handed--done">
-           ${svg("check")}
-           <span><strong>RippleEdit has your notes</strong><small>Sent ${esc(when)}</small></span>
-         </span>
-         <button type="button" class="button button--compact button--ghost" data-send>${svg("send")} Send again</button>`
-      : `<button type="button" class="button button--compact" data-send>${svg("send")} I'm done reviewing</button>`;
+    if (!when) {
+      box.innerHTML = `<button type="button" class="button button--compact" data-send>${svg("send")} I'm done reviewing</button>`;
+      return;
+    }
+    const waiting = unsent().length;
+    box.innerHTML = `
+      <span class="handed handed--done">
+        ${svg("check")}
+        <span><strong>RippleEdit has your notes</strong><small>Sent ${esc(when)}</small></span>
+      </span>
+      ${waiting
+        ? `<button type="button" class="button button--compact" data-send>${svg("send")} Send ${waiting} new ${waiting === 1 ? "note" : "notes"}</button>`
+        : `<button type="button" class="button button--compact button--ghost" data-send>${svg("send")} Send again</button>`}`;
   }
 
   $("[data-handover]").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-send]");
     if (!button) return;
-    const open = state.comments.filter((c) => !c.parent_id && !c.done).length;
+    const waiting = sentAt() ? unsent().length : state.comments.filter((c) => !c.parent_id).length;
     const ok = await dialog({
       title: "Send your notes to RippleEdit?",
       confirmLabel: "Send notes",
-      body: `<p>${open ? `They'll be told you've finished this review, with your ${open === 1 ? "note" : `${open} notes`}.` : "They'll be told you've finished this review."}</p>
+      body: `<p>${waiting
+        ? `They'll be told you've finished this review, with your ${waiting === 1 ? "note" : `${waiting} notes`}.`
+        : "They'll be told you've looked at this version again."}</p>
              <p class="sheet-note">${svg("alert")}<span>You can keep adding notes afterwards and send again.</span></p>`,
     });
     if (!ok) return;
@@ -776,6 +792,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
   function renderAll() {
     renderNotes();
+    renderHandover();
     renderMarks();
     renderPins();
     renderWhen();
