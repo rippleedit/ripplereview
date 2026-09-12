@@ -223,52 +223,48 @@ body { overflow: hidden; }
 /* Sized so REVIEW's caps sit a touch below RippleEdit's: companion, not rival. */
 .side-brand-mark { height: 12.5px; width: auto; }
 
-.side-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 0.9rem 0.6rem; }
-.side-label {
-  padding: 0.4rem 0.6rem 0.6rem;
+.side-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 0.8rem 0.55rem 1.2rem; }
+
+.side-kicker {
+  padding: 1.1rem 0.65rem 0.5rem;
   font: 500 var(--fs-label) / 1 var(--font-mono);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--white-28);
-}
-
-.side-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  font-size: var(--fs-small);
-  font-weight: 500;
-  color: var(--white-76);
-  transition: background-color 160ms ease, color 160ms ease;
-}
-.side-item:hover { background: var(--white-08); color: var(--white); }
-.side-item.is-active { background: var(--white-08); color: var(--white); }
-.side-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-item .icon { flex: none; font-size: 1rem; color: var(--white-52); }
-.side-item.is-active .icon { color: var(--white); }
-
-/* Studio settings sit apart from the client list, with the rule between. */
-.side-tools { flex: none; padding: 0.5rem 0.6rem; border-top: 1px solid var(--white-08); }
-.side-item--tool { color: var(--white-52); }
-
-.side-sub { display: grid; gap: 0.1rem; margin: 0.15rem 0 0.5rem; padding: 0 0 0 0.6rem; list-style: none; }
-.side-sub-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.4rem 0.6rem;
-  border-left: 1px solid var(--white-14);
-  font-size: 0.8125rem;
   color: var(--white-52);
-  transition: color 160ms ease, border-color 160ms ease;
 }
-.side-sub-item span { font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
-.side-sub-item:hover { color: var(--white); }
-.side-sub-item.is-active { border-left-color: var(--signal); color: var(--white); }
+.side-nav > .side-kicker:first-child { padding-top: 0.3rem; }
+
+/* One row shape for everything in here: client, project, tool. */
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  color: var(--white-76);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+.side-link:hover { background: rgba(242, 240, 234, 0.06); color: var(--white); }
+.side-link.is-active { background: rgba(242, 240, 234, 0.09); color: var(--white); }
+.side-link-name { overflow: hidden; flex: 1; font-size: 0.875rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.side-link .icon { flex: none; font-size: 1rem; color: var(--white-52); }
+.side-link:hover .icon, .side-link.is-active .icon { color: var(--white); }
+
+.side-link--client { font-weight: 600; }
+.side-link--client .side-link-name { font-weight: 600; }
+
+/* Projects sit in a group under their client, marked by one rule. */
+.side-group { display: grid; gap: 0.1rem; margin: 0.25rem 0 0.6rem 1.15rem; padding-left: 0.55rem; border-left: 1px solid var(--white-08); }
+.side-link--project { gap: 0.45rem; padding: 0.42rem 0.55rem; color: var(--white-52); }
+.side-link--project .side-link-name { font-size: 0.8125rem; font-weight: 500; }
+.side-link--project.is-active { background: rgba(255, 61, 23, 0.1); color: var(--white); }
+.side-link-count { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
+.side-link-count .icon { width: 0.8rem; height: 0.8rem; color: inherit; }
+.side-empty { padding: 0.4rem 0.55rem; color: var(--white-28); font-size: 0.78rem; }
 .side-loading { padding: 0.6rem; }
+
+.side-tools { flex: none; padding: 0.55rem; border-top: 1px solid var(--white-08); }
+.side-link--tool { color: var(--white-52); }
 
 .side-foot {
   display: flex;

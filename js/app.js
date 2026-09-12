@@ -105,36 +105,41 @@ async function renderSidebar(r) {
   const folder = profile.is_admin ? r.folder : profile.client_folder;
   const library = folder ? libraries.get(folder.toLowerCase())?.data : null;
 
-  const projectLinks = (client) => {
+  // One row per project: job code, name, how many videos, and a dot when
+  // something has changed since this person last looked.
+  const projectRows = (client) => {
     if (!library || library.client.toLowerCase() !== client.toLowerCase()) return "";
     const seen = lastSeen(client);
-    return `<ul class="side-sub">${[...library.projects].sort(byJobNumber).map((p) => {
+    return [...library.projects].sort(byJobNumber).map((p) => {
       const info = parseTitle(p.name);
       const fresh = seen && p.modified > seen;
-      return `<li>
-        <a class="side-sub-item ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
-          <span class="side-sub-name">
-            ${info.code ? `<span class="tag tag--code tag--mini">${esc(info.code)}</span>` : ""}
-            <span>${esc(info.title)}</span>
-          </span>
-          <span class="side-sub-count" title="${p.videos.length} ${p.videos.length === 1 ? "video" : "videos"}">${svg("film")}${p.videos.length}</span>
+      return `
+        <a class="side-link side-link--project ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
+          ${info.code ? `<span class="tag tag--code tag--mini">${esc(info.code)}</span>` : ""}
+          <span class="side-link-name">${esc(info.title)}</span>
           ${fresh ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
-        </a></li>`;
-    }).join("")}</ul>`;
+          <span class="side-link-count">${svg("film")}${p.videos.length}</span>
+        </a>`;
+    }).join("");
   };
 
   const body = profile.is_admin
-    ? `<p class="side-label">Clients</p>
-       ${clients ? clients.folders.map((f) => `
-          <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">
-            ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}<span>${esc(f.folder)}</span>
-            ${f.updated && lastSeen(f.folder) && f.updated > lastSeen(f.folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
-          </a>
-          ${folder?.toLowerCase() === f.folder.toLowerCase() ? projectLinks(f.folder) : ""}`).join("")
-         : `<div class="side-loading">${spinner()}</div>`}`
-    : `<p class="side-label">Projects</p>
-       <a class="side-item ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">${svg("folder")}<span>All projects</span></a>
-       ${projectLinks(profile.client_folder)}`;
+    ? `<p class="side-kicker">Clients</p>
+       ${clients ? clients.folders.map((f) => {
+          const active = folder?.toLowerCase() === f.folder.toLowerCase();
+          return `
+            <a class="side-link side-link--client ${active ? "is-active" : ""}" href="${href.space(f.folder)}">
+              ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}
+              <span class="side-link-name">${esc(f.folder)}</span>
+            </a>
+            ${active ? `<div class="side-group">${projectRows(f.folder) || `<p class="side-empty">No projects yet</p>`}</div>` : ""}`;
+        }).join("") : `<div class="side-loading">${spinner()}</div>`}`
+    : `<a class="side-link side-link--client ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">
+         ${avatar(profile.client_folder, { src: profile.avatar })}
+         <span class="side-link-name">${esc(profile.client_folder)}</span>
+       </a>
+       <p class="side-kicker">Projects</p>
+       <div class="side-group">${projectRows(profile.client_folder) || `<p class="side-empty">Nothing here yet</p>`}</div>`;
 
   sidebar.innerHTML = `
     <a class="side-brand" href="#/">
@@ -145,7 +150,7 @@ async function renderSidebar(r) {
     <nav class="side-nav">${body}</nav>
     ${profile.is_admin ? `
       <div class="side-tools">
-        <a class="side-item side-item--tool ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("users")}<span>Manage logins</span></a>
+        <a class="side-link side-link--tool ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("users")}<span class="side-link-name">Manage logins</span></a>
       </div>` : ""}
     <button class="side-foot" type="button" data-profile>
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
