@@ -818,26 +818,71 @@ body { overflow: hidden; }
 .note {
   position: relative;
   display: grid;
-  gap: 0.5rem;
-  padding: 0.95rem 1.1rem;
+  gap: 0.4rem;
+  padding: 0.85rem 1.1rem;
   border-bottom: 1px solid var(--white-08);
   cursor: pointer;
-  transition: background-color 200ms ease;
+  transition: background-color 160ms ease, opacity 200ms ease;
 }
 .note:hover { background: rgba(242, 240, 234, 0.03); }
-.note.is-active { background: rgba(255, 61, 23, 0.07); }
+.note.is-active { background: rgba(255, 61, 23, 0.06); }
 .note.is-active::before { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--signal); content: ""; }
-.note-head { display: flex; align-items: center; gap: 0.55rem; }
-.note-index { display: grid; place-items: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.3rem; border-radius: var(--radius-control); background: var(--signal); font: 500 0.6875rem / 1 var(--font-mono); color: var(--white); }
-.note.is-done .note-index { background: var(--white-14); color: var(--white-52); }
-.note-tc { font: 500 var(--fs-label) / 1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--white); }
-.note-tc--general { color: var(--white-52); text-transform: uppercase; letter-spacing: 0.06em; }
-.note-pin svg { width: 0.85rem; height: 0.85rem; fill: none; stroke: var(--white-52); stroke-width: 1.8; }
-.note-done { display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto; font: 500 0.6875rem / 1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--white-52); cursor: pointer; }
-.note-done input { width: 15px; height: 15px; margin: 0; accent-color: var(--signal); cursor: pointer; }
+
+/* A finished note steps back: everything in it fades, replies included. */
+.note.is-done { opacity: 0.42; }
+.note.is-done:hover { opacity: 0.72; }
+
+.note-top { display: flex; align-items: center; gap: 0.5rem; }
+.note-index {
+  display: grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: var(--white-08);
+  font: 500 0.6875rem / 1 var(--font-mono);
+  color: var(--white-52);
+}
+.note.is-active .note-index { background: var(--signal); color: var(--white); }
+.note-tc { font: 500 var(--fs-label) / 1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--white-76); }
+.note-tc--general { text-transform: uppercase; letter-spacing: 0.06em; color: var(--white-28); }
+.note-mark { display: inline-flex; font-size: 0.85rem; color: var(--white-28); }
+
+/* Reply and delete stay out of the way until the note is hovered. */
+.note-tools { display: flex; gap: 0.1rem; margin-left: auto; opacity: 0; transition: opacity 160ms ease; }
+.note:hover .note-tools, .note:focus-within .note-tools { opacity: 1; }
+@media (hover: none) { .note-tools { opacity: 1; } }
+.icon-button--tiny { width: 1.6rem; height: 1.6rem; font-size: 0.85rem; }
+
+/* Done: an outline that fills in. Quiet either way. */
+.note-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--white-14);
+  border-radius: 50%;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+.note-tools + .note-check { margin-left: 0; }
+.note-check .icon { width: 0.75rem; height: 0.75rem; stroke-width: 2.6; }
+.note:hover .note-check { border-color: var(--white-28); color: var(--white-28); }
+.note-check[aria-pressed="true"] { border-color: var(--white-28); background: var(--white-14); color: var(--white-76); }
+
 .note-body { font-size: var(--fs-body); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.note.is-done > .note-body { color: var(--white-52); }
 .note-by { display: flex; align-items: center; gap: 0.4rem; color: var(--white-52); font-size: 0.75rem; }
+.note-when { color: var(--white-28); }
+.note-by .icon-button--tiny { margin-left: auto; opacity: 0; transition: opacity 160ms ease; }
+.reply:hover .icon-button--tiny { opacity: 1; }
+.note-author { color: var(--white-76); font-weight: 600; }
+.note-author--studio { color: var(--signal); }
+.note-org { color: var(--white-28); font-size: 0.7rem; }
 .note-actions { display: flex; gap: 1rem; }
 .replies { display: grid; gap: 0.7rem; margin: 0.2rem 0 0; padding: 0 0 0 0.9rem; border-left: 1px solid var(--white-14); list-style: none; }
 .reply { display: grid; gap: 0.25rem; }
@@ -845,6 +890,19 @@ body { overflow: hidden; }
 .reply-form { padding: 0.6rem 0.75rem; border: 1px solid var(--white-14); border-radius: var(--radius-small); background: var(--black); cursor: auto; }
 .reply-form textarea { margin: 0; font-size: var(--fs-small); }
 .reply-form-foot { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-top: 0.4rem; }
+
+/* Tabs carry their own counts. */
+.tabs button i { font: 500 0.625rem / 1 var(--font-mono); font-style: normal; color: var(--white-28); }
+.tabs button.is-active i { color: var(--white-52); }
+
+/* Drawings on the frame. */
+.draw-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.draw-layer path { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.draw-layer path.is-done { opacity: 0.35; }
+.draw-layer path.is-draft { stroke-dasharray: none; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)); }
+.player.is-drawing { cursor: crosshair; touch-action: none; }
+.pin-toggle--quiet { border-color: transparent; }
+
 .notes-empty { padding: 1.6rem 1.1rem; color: var(--white-52); font-size: var(--fs-small); }
 
 @media (max-width: 1100px) {

@@ -75,6 +75,10 @@ export const icon = {
   send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  draw: '<path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/><path d="M5 21h14"/>',
+  undo: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>',
+  reply: '<path d="M9 17l-5-5 5-5"/><path d="M4 12h9a7 7 0 0 1 7 7v1"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
   alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
 
@@ -170,7 +174,8 @@ export function parseTitle(raw = "") {
   const rest = [];
   for (const part of parts) {
     if (/^preview$/i.test(part) && !preview) { preview = true; continue; }
-    if (!code && /^[A-Za-z]{2,4}-\d{1,3}$/.test(part)) { code = part.toUpperCase(); continue; }
+    const job = !code && /^([A-Za-z]{2,4})[-_ ]?(\d{1,3})$/.exec(part);
+    if (job) { code = `${job[1].toUpperCase()}-${job[2]}`; continue; }
     rest.push(part);
   }
   const title = rest.join(" ").replace(/[-–]+/g, " ").replace(/\s+/g, " ").trim();

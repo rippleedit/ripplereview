@@ -4,8 +4,8 @@
 // a note jumps the player there; the marks on the scrub bar are the same notes.
 
 import { api } from "./api.js";
-import { download, FRAME_RATES, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, dialog, esc, href, parseTitle, relTime, spinner, svg, titleTag, toast } from "./ui.js";
+import { download, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
+import { avatar, colourFor, dialog, esc, href, parseTitle, relTime, spinner, svg, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -47,12 +47,13 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     people: new Map(),          // who is in this space, for names and faces
     approval: null,
     fps: readFps(fileId) ?? 25,
-    fpsChosen: readFps(fileId) != null,
     filter: "all",
     activeId: null,
     general: false,
     pinMode: false,
     draftPin: null,
+    draftStrokes: [],           // freehand marks on the frame, 0..1 coordinates
+    drawMode: false,
     replyingTo: null,
   };
 
@@ -63,11 +64,12 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           ${name.code ? `<span class="tag tag--code">${esc(name.code)}</span>` : ""}
           <h1 class="review-title">${esc(name.title)}</h1>
           ${name.preview ? `<span class="tag tag--preview">Preview</span>` : ""}
+          ${video.versions.length > 1 ? `
+            <nav class="versions" aria-label="Versions">
+              ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
+            </nav>` : ""}
         </span>
-        ${video.versions.length > 1 ? `
-          <nav class="versions" aria-label="Versions">
-            ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
-          </nav>` : ""}
+        <div class="approval" data-approval></div>
       </div>
 
       <div class="review-layout">
@@ -76,7 +78,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             <div class="player" data-player>
               <video playsinline preload="auto" data-video></video>
               <div class="player-layer" data-layer></div>
-              <p class="player-hint" data-pin-hint hidden>Click the frame to mark the spot</p>
+              <p class="player-hint" data-pin-hint hidden></p>
               <div class="player-state" data-player-state>${spinner("Loading")}</div>
             </div>
             <div class="controls">
@@ -89,31 +91,23 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
               </div>
               <span class="tc tc--dim" data-duration>--:--:--:--</span>
               <button class="round round--quiet" type="button" data-mute aria-label="Mute">${ICON.sound}</button>
-              <label class="fps" title="Frame rate used for timecode">
-                <select data-fps aria-label="Frame rate">${FRAME_RATES.map((r) => `<option value="${r}">${r} fps</option>`).join("")}</select>
-              </label>
               <button class="round round--quiet" type="button" data-full aria-label="Full screen">${ICON.full}</button>
             </div>
           </div>
 
           <div class="review-meta">
-            <div>
-              <p class="review-where"><a href="${projectHref}">${esc(parseTitle(project.name).title)}</a> · ${esc(version.name)}</p>
-              ${latest.id !== fileId ? `<p class="review-older">This is an older cut. <a class="text-link" href="${href.video(library.client, latest.id)}">Watch v${latest.label}, the latest →</a></p>` : ""}
-              <p class="review-keys">Space play · ← → one frame · Shift ← → one second</p>
-            </div>
-            <div class="approval" data-approval></div>
+            ${latest.id !== fileId ? `<p class="review-older">You're watching an older cut. <a class="text-link" href="${href.video(library.client, latest.id)}">Open v${latest.label}, the latest →</a></p>` : ""}
+            <p class="review-keys">Space play · ← → one frame · Shift ← → one second</p>
           </div>
         </div>
 
         <aside class="notes" aria-label="Notes">
           <div class="notes-head">
-            <div class="section-label"><span class="section-label-text">Notes</span><span class="section-label-count" data-count></span></div>
             <div class="notes-tools">
               <div class="tabs" role="tablist" data-tabs>
-                <button type="button" data-filter="all" class="is-active">All</button>
-                <button type="button" data-filter="open">Open</button>
-                <button type="button" data-filter="done">Done</button>
+                <button type="button" data-filter="all" class="is-active">All <i data-count-all></i></button>
+                <button type="button" data-filter="open">Open <i data-count-open></i></button>
+                <button type="button" data-filter="done">Done <i data-count-done></i></button>
               </div>
               <details class="menu" data-menu>
                 <summary class="text-button">Export</summary>
@@ -130,6 +124,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             <div class="composer-top">
               <button type="button" class="tc-chip" data-when title="Click for a general note without timecode"></button>
               <button type="button" class="pin-toggle" data-pin-toggle>${ICON.pin}<span>Mark a spot</span></button>
+              <button type="button" class="pin-toggle" data-draw-toggle>${ICON.draw}<span>Draw</span></button>
+              <button type="button" class="pin-toggle pin-toggle--quiet" data-draw-undo hidden>${ICON.undo}<span>Undo</span></button>
             </div>
             <textarea name="body" rows="3" placeholder="Pause anywhere and write your note…" data-body></textarea>
             <div class="composer-foot">
@@ -150,7 +146,6 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const scrub = $("[data-scrub]");
   const composer = $("[data-composer]");
   const body = $("[data-body]");
-  const fpsSelect = $("[data-fps]");
   const playerState = $("[data-player-state]");
 
   // Player ----------------------------------------------------------------
@@ -215,7 +210,39 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const resizer = new ResizeObserver(fitLayer);
   resizer.observe(player);
 
+  // Freehand: each press starts a stroke, sampled until the pointer lifts.
+  player.addEventListener("pointerdown", (event) => {
+    if (!state.drawMode) return;
+    event.preventDefault();
+    const rect = () => layer.getBoundingClientRect();
+    const at = (e) => {
+      const r = rect();
+      return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+    };
+    const stroke = [at(event)];
+    state.draftStrokes.push(stroke);
+    player.setPointerCapture(event.pointerId);
+    const move = (e) => {
+      const point = at(e);
+      const last = stroke.at(-1);
+      if (Math.hypot(point[0] - last[0], point[1] - last[1]) < 0.004) return;
+      stroke.push(point);
+      renderPins();
+    };
+    const up = () => {
+      player.removeEventListener("pointermove", move);
+      if (stroke.length < 2) state.draftStrokes.pop();
+      renderPins();
+      renderWhen();
+      body.focus();
+    };
+    player.addEventListener("pointermove", move);
+    player.addEventListener("pointerup", up, { once: true });
+    player.addEventListener("pointercancel", up, { once: true });
+  });
+
   player.addEventListener("click", (event) => {
+    if (state.drawMode) return;
     if (!state.pinMode) return togglePlay();
     const r = layer.getBoundingClientRect();
     const x = (event.clientX - r.left) / r.width;
@@ -291,23 +318,14 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     scrub.addEventListener("pointerup", () => scrub.removeEventListener("pointermove", move), { once: true });
   });
 
-  // Frame rate: remembered per video; measured from playback until chosen.
-  fpsSelect.value = String(state.fps);
-  fpsSelect.addEventListener("change", () => {
-    state.fps = Number(fpsSelect.value);
-    state.fpsChosen = true;
-    saveFps(fileId, state.fps);
-    refreshTimecodes();
-  });
-
   function refreshTimecodes() {
-    fpsSelect.value = String(state.fps);
     if (videoEl.duration) $("[data-duration]").textContent = timecode(videoEl.duration, state.fps);
     renderClock();
     renderNotes();
   }
 
-  if ("requestVideoFrameCallback" in HTMLVideoElement.prototype && !state.fpsChosen) {
+  // The frame rate is measured from playback, never asked for.
+  if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
     let last = null;
     const deltas = [];
     const measure = (_, meta) => {
@@ -318,11 +336,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       last = meta;
       if (deltas.length < 24) return videoEl.requestVideoFrameCallback(measure);
       deltas.sort((a, b) => a - b);
-      if (!state.fpsChosen) {
-        state.fps = snapRate(1 / deltas[12]);
-        saveFps(fileId, state.fps);
-        refreshTimecodes();
-      }
+      state.fps = snapRate(1 / deltas[12]);
+      saveFps(fileId, state.fps);
+      refreshTimecodes();
     };
     videoEl.requestVideoFrameCallback(measure);
   }
@@ -339,13 +355,29 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     return topNotes().map((c, i) => ({ ...c, n: i + 1 }));
   }
 
+  // What sits on this frame: the pins and drawings of notes made here, plus
+  // whatever is being drawn right now.
+  const strokesPath = (strokes) => strokes
+    .filter((stroke) => stroke.length > 1)
+    .map((stroke) => "M" + stroke.map(([x, y]) => `${(x * 1000).toFixed(1)} ${(y * 1000).toFixed(1)}`).join("L"))
+    .join(" ");
+
   function renderPins() {
     const here = frameOf(videoEl.currentTime, state.fps);
-    const pins = videoEl.paused
-      ? numbered().filter((c) => c.pin_x != null && c.time_sec != null && frameOf(c.time_sec, state.fps) === here)
+    const onThisFrame = videoEl.paused
+      ? numbered().filter((c) => c.time_sec != null && frameOf(c.time_sec, state.fps) === here)
       : [];
-    layer.innerHTML = pins.map((c) => `
-      <span class="pin ${c.id === state.activeId ? "is-active" : ""} ${c.done ? "is-done" : ""}" style="left:${c.pin_x * 100}%;top:${c.pin_y * 100}%">${c.n}</span>`).join("")
+    const marks = onThisFrame.filter((c) => c.drawing?.length);
+
+    const svg = marks.length || state.draftStrokes.length ? `
+      <svg class="draw-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+        ${marks.map((c) => `<path d="${strokesPath(c.drawing)}" stroke="${c.author_is_admin ? "var(--signal)" : colourFor(c.author_name)}" class="${c.done ? "is-done" : ""}"/>`).join("")}
+        ${state.draftStrokes.length ? `<path d="${strokesPath(state.draftStrokes)}" stroke="var(--signal)" class="is-draft"/>` : ""}
+      </svg>` : "";
+
+    layer.innerHTML = svg
+      + onThisFrame.filter((c) => c.pin_x != null).map((c) => `
+        <span class="pin ${c.id === state.activeId ? "is-active" : ""} ${c.done ? "is-done" : ""}" style="left:${c.pin_x * 100}%;top:${c.pin_y * 100}%">${c.n}</span>`).join("")
       + (state.draftPin ? `<span class="pin pin--draft" style="left:${state.draftPin.x * 100}%;top:${state.draftPin.y * 100}%">+</span>` : "");
   }
 
@@ -382,30 +414,59 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     const chip = $("[data-when]");
     chip.textContent = state.general ? "General note" : `@ ${timecode(videoEl.currentTime, state.fps)}`;
     chip.classList.toggle("is-general", state.general);
-    const toggle = $("[data-pin-toggle]");
-    toggle.classList.toggle("is-set", !!state.draftPin);
-    toggle.classList.toggle("is-armed", state.pinMode);
-    toggle.querySelector("span").textContent = state.draftPin ? "Spot marked ✕" : state.pinMode ? "Click the frame" : "Mark a spot";
-    toggle.disabled = state.general;
+
+    const pin = $("[data-pin-toggle]");
+    pin.classList.toggle("is-set", !!state.draftPin);
+    pin.classList.toggle("is-armed", state.pinMode);
+    pin.querySelector("span").textContent = state.draftPin ? "Spot marked ✕" : state.pinMode ? "Click the frame" : "Mark a spot";
+    pin.disabled = state.general;
+
+    const draw = $("[data-draw-toggle]");
+    const drawn = state.draftStrokes.length;
+    draw.classList.toggle("is-armed", state.drawMode);
+    draw.classList.toggle("is-set", drawn > 0 && !state.drawMode);
+    draw.querySelector("span").textContent = state.drawMode ? "Drawing…" : drawn ? `Drawing (${drawn})` : "Draw";
+    draw.disabled = state.general;
+    $("[data-draw-undo]").hidden = !drawn;
+
+    const hint = $("[data-pin-hint]");
+    hint.hidden = !(state.pinMode || state.drawMode);
+    hint.textContent = state.pinMode ? "Click the frame to mark the spot" : "Draw on the frame";
   }
 
   function setPinMode(on) {
     state.pinMode = on;
+    if (on) setDrawMode(false);
     player.classList.toggle("is-pinning", on);
-    $("[data-pin-hint]").hidden = !on;
+    if (on) videoEl.pause();
+    renderWhen();
+  }
+
+  function setDrawMode(on) {
+    state.drawMode = on;
+    if (on) state.pinMode = false;
+    player.classList.toggle("is-drawing", on);
+    player.classList.toggle("is-pinning", state.pinMode);
     if (on) videoEl.pause();
     renderWhen();
   }
 
   $("[data-when]").addEventListener("click", () => {
     state.general = !state.general;
-    if (state.general) { state.draftPin = null; setPinMode(false); renderPins(); }
+    if (state.general) { state.draftPin = null; state.draftStrokes = []; setPinMode(false); setDrawMode(false); renderPins(); }
     renderWhen();
   });
 
   $("[data-pin-toggle]").addEventListener("click", () => {
     if (state.draftPin) { state.draftPin = null; renderPins(); renderWhen(); return; }
     setPinMode(!state.pinMode);
+  });
+
+  $("[data-draw-toggle]").addEventListener("click", () => setDrawMode(!state.drawMode));
+  $("[data-draw-undo]").addEventListener("click", () => {
+    state.draftStrokes.pop();
+    renderPins();
+    renderWhen();
   });
 
   body.addEventListener("focus", () => videoEl.pause());
@@ -430,10 +491,14 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         time_sec: state.general ? null : videoEl.currentTime,
         pin_x: state.general ? null : state.draftPin?.x ?? null,
         pin_y: state.general ? null : state.draftPin?.y ?? null,
+        drawing: state.general || !state.draftStrokes.length ? null
+          : state.draftStrokes.map((stroke) => stroke.map(([x, y]) => [Number(x.toFixed(4)), Number(y.toFixed(4))])),
       });
       state.comments.push(row);
       body.value = "";
       state.draftPin = null;
+      state.draftStrokes = [];
+      setDrawMode(false);
       state.general = false;
       state.activeId = row.id;
       renderAll();
@@ -472,30 +537,36 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   function renderNotes() {
     const all = numbered();
     const open = all.filter((c) => !c.done).length;
-    $("[data-count]").textContent = all.length ? `${open} open · ${all.length} total` : "";
+    $("[data-count-all]").textContent = all.length || "";
+    $("[data-count-open]").textContent = open || "";
+    $("[data-count-done]").textContent = all.length - open || "";
     const shown = all.filter((c) => state.filter === "all" || (state.filter === "done" ? c.done : !c.done));
+
+    const reply = (r) => `
+      <li class="reply">
+        <p class="note-body">${esc(r.body)}</p>
+        <p class="note-by">${authorLabel(r)}<span class="note-when">${relTime(r.created_at)}</span>
+          ${mine(r) ? `<button type="button" class="icon-button icon-button--tiny" data-delete="${r.id}" title="Delete" aria-label="Delete reply">${svg("trash")}</button>` : ""}</p>
+      </li>`;
 
     $("[data-notes]").innerHTML = shown.length ? shown.map((c) => {
       const replies = state.comments.filter((r) => r.parent_id === c.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
       return `
         <li class="note ${c.done ? "is-done" : ""} ${c.id === state.activeId ? "is-active" : ""}" data-note="${c.id}">
-          <div class="note-head">
+          <div class="note-top">
             <span class="note-index">${c.n}</span>
             ${c.time_sec != null ? `<span class="note-tc">${timecode(c.time_sec, state.fps)}</span>` : `<span class="note-tc note-tc--general">General</span>`}
-            ${c.pin_x != null ? `<span class="note-pin" title="Marked a spot">${ICON.pin}</span>` : ""}
-            <label class="note-done" title="Mark done"><input type="checkbox" data-done ${c.done ? "checked" : ""}><span>Done</span></label>
+            ${c.pin_x != null ? `<span class="note-mark" title="Points at a spot">${svg("pin")}</span>` : ""}
+            ${c.drawing?.length ? `<span class="note-mark" title="Has a drawing">${svg("draw")}</span>` : ""}
+            <span class="note-tools">
+              <button type="button" class="icon-button icon-button--tiny" data-reply title="Reply" aria-label="Reply">${svg("reply")}</button>
+              ${mine(c) ? `<button type="button" class="icon-button icon-button--tiny" data-delete="${c.id}" title="Delete" aria-label="Delete note">${svg("trash")}</button>` : ""}
+            </span>
+            <button type="button" class="note-check" data-done aria-pressed="${c.done}" title="${c.done ? "Mark as open" : "Mark as done"}" aria-label="${c.done ? "Mark as open" : "Mark as done"}">${svg("check")}</button>
           </div>
           <p class="note-body">${esc(c.body)}</p>
-          <p class="note-by">${authorLabel(c)} · ${relTime(c.created_at)}</p>
-          ${replies.length ? `<ul class="replies">${replies.map((r) => `
-            <li class="reply" data-reply-id="${r.id}">
-              <p class="note-body">${esc(r.body)}</p>
-              <p class="note-by">${authorLabel(r)} · ${relTime(r.created_at)}${mine(r) ? ` · <button type="button" class="text-button text-button--small" data-delete="${r.id}">Delete</button>` : ""}</p>
-            </li>`).join("")}</ul>` : ""}
-          <div class="note-actions">
-            <button type="button" class="text-button text-button--small" data-reply>Reply</button>
-            ${mine(c) ? `<button type="button" class="text-button text-button--small" data-delete="${c.id}">Delete</button>` : ""}
-          </div>
+          <p class="note-by">${authorLabel(c)}<span class="note-when">${relTime(c.created_at)}</span></p>
+          ${replies.length ? `<ul class="replies">${replies.map(reply).join("")}</ul>` : ""}
           ${state.replyingTo === c.id ? `
             <form class="reply-form" data-reply-form>
               <textarea rows="2" placeholder="Write a reply…" data-reply-body></textarea>
@@ -518,7 +589,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (!item) return;
     const id = item.dataset.note;
 
-    if (event.target.closest("[data-done]") || event.target.closest(".note-done")) return;
+
 
     const del = event.target.closest("[data-delete]");
     if (del) {
@@ -542,22 +613,18 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       renderNotes();
       return;
     }
+    const check = event.target.closest("[data-done]");
+    if (check) {
+      const note = state.comments.find((c) => c.id === id);
+      try {
+        const row = await api.updateComment(id, { done: !note.done });
+        note.done = row.done;
+        renderAll();
+      } catch (error) { toast(error.message); }
+      return;
+    }
     if (event.target.closest("[data-reply-form]")) return;
     activate(id, false);
-  });
-
-  list.addEventListener("change", async (event) => {
-    const box = event.target.closest("[data-done]");
-    if (!box) return;
-    const id = box.closest("[data-note]").dataset.note;
-    try {
-      const row = await api.updateComment(id, { done: box.checked });
-      Object.assign(state.comments.find((c) => c.id === id), { done: row.done });
-      renderAll();
-    } catch (error) {
-      box.checked = !box.checked;
-      toast(error.message);
-    }
   });
 
   list.addEventListener("submit", async (event) => {
@@ -631,7 +698,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (event.key === " " || event.key === "k") { event.preventDefault(); togglePlay(); }
     else if (event.key === "ArrowLeft") { event.preventDefault(); event.shiftKey ? seek(videoEl.currentTime - 1) : stepFrames(-1); }
     else if (event.key === "ArrowRight") { event.preventDefault(); event.shiftKey ? seek(videoEl.currentTime + 1) : stepFrames(1); }
-    else if (event.key === "Escape" && state.pinMode) setPinMode(false);
+    else if (event.key === "Escape") { if (state.pinMode) setPinMode(false); if (state.drawMode) setDrawMode(false); }
   }
   document.addEventListener("keydown", onKey);
 
