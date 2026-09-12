@@ -668,10 +668,13 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     const box = $("[data-approval]");
     if (state.approval) {
       box.innerHTML = `
-        <p class="approved"><span class="approved-mark" aria-hidden="true">✓</span> Approved by ${esc(state.approval.approved_name)} · ${relTime(state.approval.approved_at)}</p>
-        <button type="button" class="text-button text-button--small" data-unapprove>Withdraw approval</button>`;
+        <span class="approved" title="Approved ${esc(new Date(state.approval.approved_at).toLocaleString())}">
+          <span class="approved-mark" aria-hidden="true">${svg("check")}</span>
+          <span><strong>v${version.label} approved</strong><small>${esc(state.approval.approved_name)} · ${relTime(state.approval.approved_at)}</small></span>
+        </span>
+        <button type="button" class="icon-button" data-unapprove title="Undo approval" aria-label="Undo approval">${svg("undo")}</button>`;
     } else {
-      box.innerHTML = `<button type="button" class="button button--solid button--approve" data-approve>${profile.is_admin ? "Mark approved" : "Approve this version"} <span aria-hidden="true">✓</span></button>`;
+      box.innerHTML = `<button type="button" class="button button--solid button--compact" data-approve>${svg("check")} ${profile.is_admin ? `Mark v${version.label} approved` : `Approve v${version.label}`}</button>`;
     }
   }
 

@@ -30,6 +30,7 @@ create table public.comments (
   time_sec double precision,         -- null for replies and general notes
   pin_x real check (pin_x between 0 and 1),
   pin_y real check (pin_y between 0 and 1),
+  drawing jsonb,                     -- freehand strokes on the frame, 0..1 coordinates
   done boolean not null default false,
   created_at timestamptz not null default now()
 );
