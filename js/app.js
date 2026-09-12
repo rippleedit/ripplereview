@@ -250,6 +250,7 @@ async function renderSpace(folder, only = null) {
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
+        ${only && parseTitle(only).code ? `<span class="tag tag--code">${esc(parseTitle(only).code)}</span>` : ""}
         <h1 class="page-title">${esc(only ? parseTitle(only).title : (cached?.client ?? folder))}</h1>
         ${cached ? "" : spinner("Loading")}
       </div>
@@ -301,7 +302,9 @@ async function renderSpace(folder, only = null) {
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
-        <span class="page-face">${avatar(library.client, { size: "md", src: face })}</span>
+        ${only
+          ? (parseTitle(only).code ? `<span class="tag tag--code">${esc(parseTitle(only).code)}</span>` : "")
+          : `<span class="page-face">${avatar(library.client, { size: "md", src: face })}</span>`}
         <h1 class="page-title">${esc(only ? parseTitle(only).title : library.client)}</h1>
         <p class="page-sub">${only
           ? `${videos.length} ${videos.length === 1 ? "video" : "videos"}`
