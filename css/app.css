@@ -554,20 +554,10 @@ body { overflow: hidden; }
 .video-thumb { transition: height 320ms var(--ease-out), width 320ms var(--ease-out), border-color 300ms ease, box-shadow 420ms var(--ease-out), transform 420ms var(--ease-out); }
 .video-card { transition: width 320ms var(--ease-out); }
 @keyframes fade-in { from { opacity: 0; } }
-/* Version and state ride on the frame: what it is on the left, where it
-   stands on the right. Both sit on a blur so they read over any footage. */
-.thumb-left { position: absolute; top: 0.6rem; left: 0.6rem; display: flex; gap: 0.3rem; }
-.video-thumb .status {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  max-width: calc(100% - 1.2rem);
-  backdrop-filter: blur(8px);
-}
-.video-thumb .status--new { border-color: transparent; background: rgba(255, 61, 23, 0.92); color: var(--white); }
-.video-thumb .status--notes { border-color: rgba(242, 240, 234, 0.22); background: rgba(5, 5, 5, 0.66); color: var(--white); }
-.video-thumb .status--done { border-color: rgba(242, 240, 234, 0.14); background: rgba(5, 5, 5, 0.6); color: var(--white-52); }
-.video-thumb .status--approved { border-color: transparent; background: rgba(62, 207, 166, 0.92); color: #06231b; }
+/* Version and state ride together on the top left of the frame: tinted glass
+   with a matching border and text, so each state has its own colour. */
+.thumb-left { position: absolute; top: 0.6rem; left: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.3rem; max-width: calc(100% - 1.2rem); }
+.video-thumb .status { backdrop-filter: blur(10px); }
 .video-card:hover .video-thumb {
   transform: translateY(-3px);
   border-color: var(--white-28);
@@ -596,14 +586,14 @@ body { overflow: hidden; }
 .status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* Waiting on the client: the one state that wants attention. */
-.status--new { border-color: rgba(255, 61, 23, 0.45); background: rgba(255, 61, 23, 0.14); color: var(--signal); }
+.status--new { border-color: rgba(255, 61, 23, 0.55); background: rgba(58, 14, 6, 0.72); color: #ff7a5e; }
 .status--new i { animation: pulse 1.8s ease-in-out infinite; }
-/* Work waiting on the studio. */
-.status--notes { border-color: var(--white-28); background: var(--white-08); color: var(--white); }
+/* Work waiting on the studio: blue, so notes can't be overlooked. */
+.status--notes { border-color: rgba(75, 179, 253, 0.55); background: rgba(6, 28, 46, 0.72); color: #6cc3ff; }
 /* Everything answered, not yet signed off. */
-.status--done { border-color: var(--white-14); color: var(--white-52); }
+.status--done { border-color: rgba(242, 240, 234, 0.2); background: rgba(12, 12, 12, 0.72); color: var(--white-52); }
 /* Signed off. */
-.status--approved { border-color: rgba(62, 207, 166, 0.4); background: rgba(62, 207, 166, 0.12); color: #3ecfa6; }
+.status--approved { border-color: rgba(62, 207, 166, 0.5); background: rgba(6, 34, 27, 0.72); color: #56dcb4; }
 
 .chip--new { border-color: var(--signal); background: var(--signal); color: var(--white); }
 .new-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 3px rgba(255, 61, 23, 0.18); }
