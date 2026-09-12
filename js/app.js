@@ -113,9 +113,10 @@ async function renderSidebar(r) {
     return [...library.projects].sort(byJobNumber).map((p) => {
       const info = parseTitle(p.name);
       const fresh = seen && p.modified > seen;
+      const active = r.name === "project" && r.project === p.name;
       return `
-        <a class="side-link side-link--project ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
-          ${info.code ? `<span class="tag tag--code tag--mini">${esc(info.code)}</span>` : ""}
+        <a class="side-link side-link--project ${active ? "is-active" : ""}" href="${href.project(client, p.name)}">
+          ${info.code ? `<span class="tag tag--mini ${active ? "tag--code" : "tag--quiet"}">${esc(info.code)}</span>` : ""}
           <span class="side-link-name">${esc(info.title)}</span>
           ${fresh ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
           <span class="side-link-count">${svg("film")}${p.videos.length}</span>

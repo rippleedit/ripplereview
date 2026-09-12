@@ -267,17 +267,20 @@ body { overflow: hidden; }
   border-left: 1px solid var(--white-08);
 }
 .side-group--nested { margin-left: 1.35rem; }
+/* Only the open project is lit: its job number goes orange, the rest sit
+   quiet with no fill at all. */
 .side-link--project {
   gap: 0.45rem;
-  padding: 0.55rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   min-width: 0;
-  border: 1px solid transparent;
-  background: rgba(242, 240, 234, 0.035);
-  color: var(--white-76);
+  background: none;
+  color: var(--white-52);
 }
-.side-link--project:hover { background: rgba(242, 240, 234, 0.075); border-color: var(--white-08); }
+.side-link--project:hover { background: rgba(242, 240, 234, 0.05); color: var(--white-76); }
 .side-link--project .side-link-name { min-width: 0; font-size: 0.8125rem; font-weight: 500; }
-.side-link--project.is-active { border-color: rgba(255, 61, 23, 0.35); background: rgba(255, 61, 23, 0.1); color: var(--white); }
+.side-link--project.is-active { background: rgba(242, 240, 234, 0.08); color: var(--white); }
+.tag--quiet { border: 1px solid var(--white-14); color: var(--white-52); }
+.side-link--project:hover .tag--quiet { border-color: var(--white-28); color: var(--white-76); }
 .side-link-count { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
 .side-link-count .icon { width: 0.8rem; height: 0.8rem; color: inherit; }
 .side-empty { padding: 0.4rem 0.55rem; color: var(--white-28); font-size: 0.78rem; }
