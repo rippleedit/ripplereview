@@ -456,22 +456,52 @@ body { overflow: hidden; }
 
 /* A client space ---------------------------------------------------------- */
 
-.project + .project { margin-top: 2rem; }
-.project .section-label { margin-bottom: 0.9rem; }
-.section-label-text:is(a):hover { color: var(--white); }
+.project + .project { margin-top: 0.5rem; }
+.project-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.7rem 0.25rem;
+  border: 0;
+  border-bottom: 1px solid var(--white-08);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.project-head:hover .project-name { color: var(--white); }
+.project-name { overflow: hidden; font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; color: var(--white-76); text-overflow: ellipsis; white-space: nowrap; }
+.project-count { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; font: 400 var(--fs-label) / 1 var(--font-mono); color: var(--white-28); }
+.project-chevron { display: inline-flex; color: var(--white-52); transition: transform 240ms var(--ease-out); }
+.project-chevron .icon { width: 1rem; height: 1rem; }
+.project.is-open .project-chevron { transform: rotate(180deg); }
+.project .video-grid { display: none; }
+.project.is-open .video-grid { display: flex; padding: 1.1rem 0 1.6rem; animation: fade-in 240ms ease; }
 
+.page-head { align-items: center; }
+.page-face { display: inline-flex; }
+
+/* Every cut is the same height; its shape decides the width, so a short
+   reads as a short at a glance without shrinking the long form. */
 .video-grid {
-  display: grid;
-  align-items: start;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 216px), 1fr));
+  --shot-h: clamp(180px, 22vh, 250px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: clamp(0.8rem, 1.4vw, 1.15rem);
 }
 
-.video-card { display: grid; gap: 0.6rem; align-content: start; }
+.video-card {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+  width: max(calc(var(--shot-h) * var(--ar, 1.7778)), 160px);
+  max-width: 100%;
+}
 .video-thumb {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
+  height: var(--shot-h);
   border: 1px solid var(--white-14);
   border-radius: var(--radius-media);
   background: radial-gradient(80% 80% at 50% 50%, rgba(255, 61, 23, 0.1), transparent), var(--panel);
@@ -521,11 +551,11 @@ body { overflow: hidden; }
 .new-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 3px rgba(255, 61, 23, 0.18); }
 .client-card-name strong .new-dot { display: inline-block; margin-left: 0.4rem; vertical-align: middle; }
 
-/* Sidebar projects: code, name, how many videos. */
-.side-sub-item { display: flex; align-items: center; gap: 0.5rem; }
+/* Sidebar projects: code, name, how many videos - the count never squeezed out. */
+.side-sub-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; padding-right: 0.5rem; }
 .side-sub-name { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .side-sub-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.side-sub-count { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
+.side-sub-count { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
 .side-sub-count .icon { width: 0.8rem; height: 0.8rem; }
 .tag--mini { padding: 0.1rem 0.25rem; font-size: 0.625rem; letter-spacing: 0.04em; }
 .side-item .new-dot { margin-left: auto; }

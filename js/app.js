@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, dialog, copyField, esc, guessRatio, href, lastSeen, loginId, loginName, markSeen, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, byJobNumber, dialog, copyField, esc, guessRatio, href, lastSeen, loginId, loginName, markSeen, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -108,7 +108,7 @@ async function renderSidebar(r) {
   const projectLinks = (client) => {
     if (!library || library.client.toLowerCase() !== client.toLowerCase()) return "";
     const seen = lastSeen(client);
-    return `<ul class="side-sub">${library.projects.map((p) => {
+    return `<ul class="side-sub">${[...library.projects].sort(byJobNumber).map((p) => {
       const info = parseTitle(p.name);
       const fresh = seen && p.modified > seen;
       return `<li>
@@ -274,8 +274,8 @@ async function renderSpace(folder, only = null) {
     const cut = parseVideo(video.title, projectTitle);
     const fresh = seen && latest.modified > seen;
     return `
-      <a class="video-card ${fresh ? "is-new" : ""}" href="${href.video(library.client, latest.id)}">
-        <div class="video-thumb" style="aspect-ratio:${guessRatio(cut)}" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
+      <a class="video-card ${fresh ? "is-new" : ""}" style="--ar:${guessRatio(cut)}" href="${href.video(library.client, latest.id)}">
+        <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
           ${fresh ? `<span class="chip chip--new">New</span>` : ""}
         </div>
@@ -291,23 +291,35 @@ async function renderSpace(folder, only = null) {
       </a>`;
   };
 
+  const ordered = only ? projects : [...projects].sort(byJobNumber);
+  const face = profile.is_admin
+    ? (clients?.folders.find((f) => f.folder.toLowerCase() === library.client.toLowerCase())?.logins.find((l) => l.avatar)?.avatar)
+    : profile.avatar;
+
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
+        <span class="page-face">${avatar(library.client, { size: "md", src: face })}</span>
         <h1 class="page-title">${esc(only ? parseTitle(only).title : library.client)}</h1>
         <p class="page-sub">${only
           ? `${videos.length} ${videos.length === 1 ? "video" : "videos"}`
           : `${library.projects.length} ${library.projects.length === 1 ? "project" : "projects"} · ${videos.length} ${videos.length === 1 ? "video" : "videos"}`}</p>
       </div>
-      ${projects.length ? projects.map((project) => `
-        <section class="project">
-          ${only ? "" : `<div class="section-label">
-            ${parseTitle(project.name).code ? `<span class="tag tag--code">${esc(parseTitle(project.name).code)}</span>` : ""}
-            <a class="section-label-text section-label-text--title" href="${href.project(library.client, project.name)}">${esc(parseTitle(project.name).title)}</a>
-            <span class="section-label-count">${project.videos.length} ${project.videos.length === 1 ? "video" : "videos"}</span>
-          </div>`}
-          <div class="video-grid">${sortCuts(project).map((video) => card(video, parseTitle(project.name).title)).join("")}</div>
-        </section>`).join("") : `
+      ${ordered.length ? ordered.map((project, index) => {
+        const info = parseTitle(project.name);
+        const open = only || index === 0;          // the newest job is the one you came for
+        return `
+        <section class="project ${open ? "is-open" : ""}" data-project="${esc(project.name)}">
+          ${only ? "" : `
+            <button class="project-head" type="button" data-toggle aria-expanded="${open}">
+              <span class="project-chevron" aria-hidden="true">${svg("chevron")}</span>
+              ${info.code ? `<span class="tag tag--code">${esc(info.code)}</span>` : ""}
+              <span class="project-name">${esc(info.title)}</span>
+              <span class="project-count">${svg("film")}${project.videos.length}</span>
+            </button>`}
+          <div class="video-grid">${sortCuts(project).map((video) => card(video, info.title)).join("")}</div>
+        </section>`;
+      }).join("") : `
         <div class="empty">
           <p>Nothing here yet.</p>
           <p class="empty-sub">${profile.is_admin
@@ -315,6 +327,22 @@ async function renderSpace(folder, only = null) {
             : "We'll let you know when your first cut is ready."}</p>
         </div>`}
     </section>`;
+
+  // One project open at a time.
+  view.querySelectorAll("[data-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const section = button.closest(".project");
+      const wasOpen = section.classList.contains("is-open");
+      view.querySelectorAll(".project").forEach((other) => {
+        other.classList.remove("is-open");
+        other.querySelector("[data-toggle]")?.setAttribute("aria-expanded", "false");
+      });
+      if (!wasOpen) {
+        section.classList.add("is-open");
+        button.setAttribute("aria-expanded", "true");
+      }
+    });
+  });
 
   fillThumbs([...view.querySelectorAll("[data-thumb]")]);
   markSeen(library.client);
@@ -333,7 +361,7 @@ async function fillThumbs(slots) {
       const img = slot.querySelector(".thumb-shot");
       img.addEventListener("load", () => {
         // The file's real shape wins over the guess from its name.
-        if (img.naturalWidth && img.naturalHeight) slot.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        if (img.naturalWidth && img.naturalHeight) slot.closest(".video-card").style.setProperty("--ar", img.naturalWidth / img.naturalHeight);
       }, { once: true });
     }
     else missing.push(slot);
@@ -345,7 +373,7 @@ async function fillThumbs(slots) {
       slot.insertAdjacentHTML("afterbegin", `<video class="thumb-shot" src="${esc(url)}#t=1" muted playsinline preload="metadata" aria-hidden="true"></video>`);
       const clip = slot.querySelector("video");
       clip.addEventListener("loadedmetadata", () => {
-        if (clip.videoWidth && clip.videoHeight) slot.style.aspectRatio = `${clip.videoWidth} / ${clip.videoHeight}`;
+        if (clip.videoWidth && clip.videoHeight) slot.closest(".video-card").style.setProperty("--ar", clip.videoWidth / clip.videoHeight);
       }, { once: true });
     } catch {}
   }

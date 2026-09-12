@@ -80,6 +80,7 @@ export const icon = {
   undo: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>',
   reply: '<path d="M9 17l-5-5 5-5"/><path d="M4 12h9a7 7 0 0 1 7 7v1"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
   film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
   alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
@@ -286,8 +287,18 @@ export function markSeen(key) {
 }
 
 // Vertical cuts are shot 9:16. Knowing that from the name means the grid is
-// laid out correctly before a single thumbnail has loaded.
+// laid out correctly before a single thumbnail has loaded. Every card is the
+// same height, so the width is what tells a short from a long form.
 export function guessRatio(cut) {
   const vertical = cut.format && ["Short", "Reel"].includes(cut.format.label);
-  return vertical ? "9 / 16" : "16 / 9";
+  return vertical ? 9 / 16 : 16 / 9;
+}
+
+// Projects run newest job number first: NIL-11 above NIL-09.
+export function byJobNumber(a, b) {
+  const number = (name) => {
+    const code = parseTitle(name).code;
+    return code ? Number(code.split("-").pop()) : -1;
+  };
+  return number(b.name) - number(a.name) || b.modified.localeCompare(a.modified);
 }
