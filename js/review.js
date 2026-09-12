@@ -454,10 +454,12 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     renderNotes();
   });
 
+  // The studio signs its notes "Razz @ RippleEdit": the person, then the company.
   const authorLabel = (c) => `
     <span class="note-who">
       ${avatar(c.author_name, { studio: c.author_is_admin, src: state.people.get(c.author_id)?.avatar })}
       <span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(c.author_name || "Someone")}</span>
+      ${c.author_is_admin ? `<span class="note-org">@ RippleEdit</span>` : ""}
     </span>`;
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
 
