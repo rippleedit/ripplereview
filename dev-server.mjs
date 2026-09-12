@@ -59,7 +59,7 @@ createServer(async (request, response) => {
     const contentType = mime.get(path.extname(filePath).toLowerCase()) || "application/octet-stream";
     const baseHeaders = {
       "Accept-Ranges": "bytes",
-      "Cache-Control": /\.(?:html|css|js)$/i.test(filePath) ? "no-store" : "public, max-age=3600",
+      "Cache-Control": "no-store",   // a dev server should never serve yesterday's file
       "Content-Type": contentType,
     };
     const range = request.headers.range;
