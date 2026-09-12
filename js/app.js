@@ -154,7 +154,10 @@ async function renderSidebar(r) {
     <button class="side-foot" type="button" data-profile>
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
       <span class="side-me">
-        <strong>${esc(profile.name || loginName(profile.email))}</strong>
+        <span class="side-me-line">
+          <strong>${esc(profile.name || loginName(profile.email))}</strong>
+          ${profile.is_admin ? `<span class="tag tag--code tag--mini">Admin</span>` : ""}
+        </span>
         ${profile.is_admin ? `<span class="side-org">@ RippleEdit</span>` : ""}
       </span>
       ${svg("settings", "side-foot-icon")}
