@@ -124,7 +124,7 @@ async function renderSidebar(r) {
     <a class="side-brand" href="#/">
       <img class="side-brand-logo" src="assets/logotype.png" width="104" height="24" alt="RippleEdit">
       <span class="side-brand-dot" aria-hidden="true"></span>
-      <img class="side-brand-mark" src="assets/ripplereview-mark.svg" alt="Review">
+      <img class="side-brand-mark" src="assets/ripplereview-mark.png" alt="Review">
     </a>
     <nav class="side-nav">${body}</nav>
     <div class="side-foot">
