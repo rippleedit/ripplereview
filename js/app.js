@@ -413,54 +413,63 @@ async function profileDialog() {
   let touchedPicture = false;
 
   const save = await dialog({
-    title: "You",
+    title: "Your profile",
     confirmLabel: "Save",
     cancelLabel: "Close",
     body: `
-      <div class="sheet-person">
-        <span data-avatar-slot>${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md", src: avatarSrc })}</span>
-        <div>
+      <div class="profile-top">
+        <span data-avatar-slot>${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "lg", src: avatarSrc })}</span>
+        <div class="profile-id">
           <strong>${esc(profile.name || loginName(profile.email))}</strong>
           <span>${esc(loginName(profile.email))}</span>
+          <span class="profile-pic-actions">
+            <button class="button button--compact" type="button" data-pick>${svg("image")}<span data-pick-label>${avatarSrc ? "Change picture" : "Add picture"}</span></button>
+            <button class="icon-button" type="button" data-drop title="Remove picture" aria-label="Remove picture" ${avatarSrc ? "" : "hidden"}>${svg("trash")}</button>
+          </span>
         </div>
-        <span class="sheet-person-actions">
-          <button class="text-button" type="button" data-pick>${avatarSrc ? "Change picture" : "Add picture"}</button>
-          <button class="text-button text-button--danger" type="button" data-drop ${avatarSrc ? "" : "hidden"}>Remove</button>
-        </span>
       </div>
       <input type="file" accept="image/*" hidden data-file>
+
       <div class="form">
-        <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
+        <label>
+          <span>Display name</span>
+          <input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off">
+        </label>
+        <p class="field-hint">Shown on every note you write${profile.is_admin ? ", followed by @ RippleEdit" : ""}.</p>
       </div>
-      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients see" : "the studio sees"} on your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
-      <div class="sheet-signout"><button class="text-button" type="button" data-sign-out>Sign out</button></div>`,
+
+      <div class="sheet-divider"></div>
+      <button class="button button--compact button--wide" type="button" data-sign-out>${svg("logout")}<span>Sign out</span></button>`,
     onOpen: (el) => {
       const input = el.querySelector("input[name=name]");
       const file = el.querySelector("[data-file]");
       const slot = el.querySelector("[data-avatar-slot]");
       const drop = el.querySelector("[data-drop]");
-      const pick = el.querySelector("[data-pick]");
+      const label = el.querySelector("[data-pick-label]");
+      const draw = () => { slot.innerHTML = avatar(name || profile.email, { studio: profile.is_admin, size: "lg", src: avatarSrc }); };
 
       input.addEventListener("input", () => { name = input.value.trim(); });
       input.focus();
-      pick.addEventListener("click", () => file.click());
+
+      el.querySelector("[data-pick]").addEventListener("click", () => file.click());
       file.addEventListener("change", async () => {
         if (!file.files?.[0]) return;
         try {
           avatarSrc = await squareDataUrl(file.files[0]);
           touchedPicture = true;
-          slot.innerHTML = avatar(name || profile.email, { studio: profile.is_admin, size: "md", src: avatarSrc });
+          draw();
           drop.hidden = false;
-          pick.textContent = "Change picture";
+          label.textContent = "Change picture";
         } catch (error) { toast(error.message); }
       });
       drop.addEventListener("click", () => {
         avatarSrc = null;
         touchedPicture = true;
-        slot.innerHTML = avatar(name || profile.email, { studio: profile.is_admin, size: "md" });
+        draw();
         drop.hidden = true;
-        pick.textContent = "Add picture";
+        label.textContent = "Add picture";
       });
+
       el.querySelector("[data-sign-out]").addEventListener("click", async () => {
         el.close();
         await api.signOut();
@@ -599,13 +608,16 @@ async function editClientDialog(folder, login) {
     title: `Edit ${folder}`,
     confirmLabel: "Save changes",
     body: `
-      <div class="sheet-person">
-        <span data-avatar-slot>${avatar(folder, { size: "md", src: login.avatar })}</span>
-        <div><strong>${esc(folder)}</strong><span>${esc(loginName(login.email))}</span></div>
-        <span class="sheet-person-actions">
-          <button class="text-button" type="button" data-pick>${login.avatar ? "Change picture" : "Add picture"}</button>
-          <button class="text-button text-button--danger" type="button" data-drop ${login.avatar ? "" : "hidden"}>Remove</button>
-        </span>
+      <div class="profile-top">
+        <span data-avatar-slot>${avatar(folder, { size: "lg", src: login.avatar })}</span>
+        <div class="profile-id">
+          <strong>${esc(folder)}</strong>
+          <span>${esc(loginName(login.email))}</span>
+          <span class="profile-pic-actions">
+            <button class="button button--compact" type="button" data-pick>${svg("image")}<span data-pick-label>${login.avatar ? "Change picture" : "Add picture"}</span></button>
+            <button class="icon-button" type="button" data-drop title="Remove picture" aria-label="Remove picture" ${login.avatar ? "" : "hidden"}>${svg("trash")}</button>
+          </span>
+        </div>
       </div>
       <input type="file" accept="image/*" hidden data-file>
       <div class="form">
@@ -627,16 +639,16 @@ async function editClientDialog(folder, login) {
         if (!file.files?.[0]) return;
         try {
           picture = await squareDataUrl(file.files[0]);
-          slot.innerHTML = avatar(folder, { size: "md", src: picture });
+          slot.innerHTML = avatar(folder, { size: "lg", src: picture });
           drop.hidden = false;
-          pick.textContent = "Change picture";
+          el.querySelector("[data-pick-label]").textContent = "Change picture";
         } catch (error) { toast(error.message); }
       });
       drop.addEventListener("click", () => {
         picture = null;
-        slot.innerHTML = avatar(folder, { size: "md" });
+        slot.innerHTML = avatar(folder, { size: "lg" });
         drop.hidden = true;
-        pick.textContent = "Add picture";
+        el.querySelector("[data-pick-label]").textContent = "Add picture";
       });
 
       form.addEventListener("submit", async (event) => {

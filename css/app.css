@@ -1151,3 +1151,18 @@ body { overflow: hidden; }
 .video-meta h3 { font-size: 0.95rem; }
 .title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
 .video-meta .title-line { gap: 0.4rem; }
+
+/* Profile and client dialogs: picture, who you are, then the field. */
+.profile-top { display: flex; align-items: center; gap: 1rem; }
+.profile-id { display: grid; gap: 0.15rem; min-width: 0; }
+.profile-id strong { font-size: 1rem; font-weight: 600; letter-spacing: -0.015em; }
+.profile-id > span:first-of-type { color: var(--white-52); font: 400 0.75rem / 1.4 var(--font-mono); }
+.profile-pic-actions { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.45rem; }
+.profile-pic-actions .button .icon { font-size: 0.95rem; }
+.avatar--lg { width: 3.6rem; height: 3.6rem; font-size: 1.1rem; }
+
+.field-hint { margin-top: -0.6rem; color: var(--white-28); font-size: 0.78rem; line-height: 1.5; }
+.sheet-divider { height: 1px; background: var(--white-08); }
+.button--wide { width: 100%; justify-content: flex-start; gap: 0.6rem; color: var(--white-76); }
+.button--wide:hover { transform: none; color: var(--white); }
+.button--wide .icon { font-size: 1rem; }
