@@ -23,6 +23,7 @@ const libraries = new Map();        // folder → { data, at }
 //         #/c/<folder>/v/<fileId>   reviewing one video
 function parseRoute() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+  if (parts[0] === "clients") return { name: "logins" };
   if (parts[0] !== "c" || !parts[1]) return { name: "home" };
   const folder = parts[1];
   if (parts[2] === "v" && parts[3]) return { name: "review", folder, fileId: parts[3] };
@@ -69,8 +70,10 @@ async function route() {
     renderCrumbs(r);
   } else if (r.name === "project" || r.name === "space" || !profile.is_admin) {
     await renderSpace(folder, r.name === "project" ? r.project : null);
-  } else {
+  } else if (r.name === "logins") {
     await renderClients();
+  } else {
+    await renderHome();
   }
 }
 
@@ -125,7 +128,8 @@ async function renderSidebar(r) {
   };
 
   const body = profile.is_admin
-    ? `<p class="side-kicker">Clients</p>
+    ? `<a class="side-link ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("home")}<span class="side-link-name">Home</span></a>
+       <p class="side-kicker">Clients</p>
        ${clients ? clients.folders.map((f) => {
           const active = folder?.toLowerCase() === f.folder.toLowerCase();
           return `
@@ -149,7 +153,7 @@ async function renderSidebar(r) {
     <nav class="side-nav">${body}</nav>
     ${profile.is_admin ? `
       <div class="side-tools">
-        <a class="side-link side-link--tool ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("users")}<span class="side-link-name">Manage logins</span></a>
+        <a class="side-link side-link--tool ${r.name === "logins" ? "is-active" : ""}" href="#/clients">${svg("users")}<span class="side-link-name">Manage logins</span></a>
       </div>` : ""}
     <button class="side-foot" type="button" data-profile>
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
@@ -177,7 +181,8 @@ function renderCrumbs(r) {
   const library = folder ? libraries.get(folder.toLowerCase())?.data : null;
   const parts = [];
 
-  if (profile.is_admin) parts.push({ label: "Clients", url: "#/" });
+  if (profile.is_admin) parts.push({ label: "Home", url: "#/" });
+  if (profile.is_admin && r.name === "logins") parts.push({ label: "Manage logins" });
   if (folder) parts.push({ label: library?.client ?? folder, url: href.space(folder) });
   if (r.name === "project") parts.push({ label: parseTitle(r.project).title });
   if (r.name === "review") {
@@ -535,6 +540,143 @@ async function profileDialog() {
     await renderSidebar(parseRoute());
     toast("Saved");
   } catch (error) { toast(error.message); }
+}
+
+// Home: the studio's one-look view -----------------------------------------
+
+// Everything on this page comes from listings we already fetch, so it costs
+// one Dropbox call per client and nothing else.
+async function gatherHome() {
+  const list = clients ??= await api.clients();
+  const spaces = await Promise.all(list.folders.map(async (entry) => {
+    const library = await getLibrary(entry.folder).catch(() => null);
+    return { ...entry, library };
+  }));
+
+  const cuts = [];
+  for (const space of spaces) {
+    for (const project of space.library?.projects ?? []) {
+      for (const video of project.videos) {
+        const latest = video.versions.at(-1);
+        cuts.push({ client: space.library.client, folder: space.folder, project, video, latest });
+      }
+    }
+  }
+
+  const ids = cuts.map((cut) => cut.latest.id);
+  const [summary, submissions, statuses] = await Promise.all([
+    api.summary(ids).catch(() => ({ comments: [], approvals: [] })),
+    api.submissions(ids).catch(() => []),
+    Promise.all(spaces.map((space) => api.statuses(space.folder).catch(() => []))).then((all) => all.flat()),
+  ]);
+
+  const handed = new Map();
+  for (const row of submissions) if (!handed.has(row.file_id)) handed.set(row.file_id, row);
+  const finished = new Set(statuses.filter((row) => row.finished).map((row) => `${row.client_folder}/${row.project}`));
+
+  for (const cut of cuts) {
+    cut.status = videoStatus(cut.latest.id, summary);
+    cut.handed = handed.get(cut.latest.id) ?? null;
+    cut.finished = finished.has(`${cut.folder.toLowerCase()}/${cut.project.name}`);
+    cut.title = parseVideo(cut.video.title, parseTitle(cut.project.name).title);
+  }
+  return { spaces, cuts, summary, finished };
+}
+
+async function renderHome() {
+  view.innerHTML = `<section class="page"><div class="page-head"><h1 class="page-title">Home</h1>${spinner("Gathering everything")}</div></section>`;
+  let data;
+  try {
+    data = await gatherHome();
+  } catch (error) {
+    return renderMessage("Couldn't load your overview", error.message);
+  }
+
+  const live = data.cuts.filter((cut) => !cut.finished);
+  const seenOf = (folder) => lastSeen(folder);
+
+  // Work sitting with you: notes handed over, or open notes on a cut.
+  const yours = live
+    .filter((cut) => cut.status.kind === "notes" || cut.handed)
+    .sort((a, b) => (b.handed?.created_at ?? "").localeCompare(a.handed?.created_at ?? "") || b.latest.modified.localeCompare(a.latest.modified));
+
+  // Work sitting with them: sent out, nothing back yet.
+  const theirs = live
+    .filter((cut) => cut.status.kind === "new" && !cut.handed)
+    .sort((a, b) => a.latest.modified.localeCompare(b.latest.modified));
+
+  const approved = data.cuts.filter((cut) => cut.status.kind === "approved");
+  const openNotes = data.summary.comments.filter((c) => !c.parent_id && !c.done).length;
+  const projects = new Set(live.map((cut) => `${cut.folder}/${cut.project.name}`)).size;
+
+  const row = (cut, tail) => `
+    <a class="feed-row" href="${href.video(cut.client, cut.latest.id)}">
+      ${avatar(cut.client, { src: data.spaces.find((s) => s.folder === cut.folder)?.logins.find((l) => l.avatar)?.avatar })}
+      <span class="feed-main">
+        <strong>${esc(cut.title.label)}</strong>
+        <span>${esc(cut.client)} · ${esc(parseTitle(cut.project.name).title)} · v${cut.latest.label}</span>
+      </span>
+      ${tail}
+    </a>`;
+
+  view.innerHTML = `
+    <section class="page">
+      <div class="page-head">
+        <h1 class="page-title">Home</h1>
+        <p class="page-sub">Everything in review, in one look.</p>
+      </div>
+
+      <div class="stats">
+        ${[["Live projects", projects], ["With you", yours.length], ["With clients", theirs.length], ["Open notes", openNotes], ["Approved", approved.length]]
+          .map(([label, value]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join("")}
+      </div>
+
+      <section class="feed">
+        <div class="section-label"><span class="section-label-text">With you</span><span class="section-label-count">${yours.length}</span></div>
+        ${yours.length ? yours.map((cut) => row(cut, `
+          <span class="feed-tail">
+            ${cut.handed ? `<span class="tag tag--code tag--mini">Notes in</span>` : ""}
+            <span class="status status--${cut.status.kind}">${cut.status.icon ? svg(cut.status.icon) : `<i></i>`}${esc(cut.status.short)}</span>
+            <span class="feed-when">${esc(relTime(cut.handed?.created_at ?? cut.latest.modified))}</span>
+          </span>`)).join("")
+        : `<p class="feed-empty">Nothing waiting on you. Enjoy it.</p>`}
+      </section>
+
+      <section class="feed">
+        <div class="section-label"><span class="section-label-text">With clients</span><span class="section-label-count">${theirs.length}</span></div>
+        ${theirs.length ? theirs.map((cut) => row(cut, `
+          <span class="feed-tail">
+            <span class="feed-when">${svg("clock")} sent ${esc(relTime(cut.latest.modified))}</span>
+          </span>`)).join("")
+        : `<p class="feed-empty">Nothing out for review right now.</p>`}
+      </section>
+
+      <section class="feed">
+        <div class="section-label"><span class="section-label-text">Clients</span><span class="section-label-count">${data.spaces.length}</span></div>
+        <div class="client-grid">
+          ${data.spaces.map((space) => {
+            const mine = live.filter((cut) => cut.folder === space.folder);
+            const login = space.logins[0];
+            const latest = mine.map((cut) => cut.latest.modified).sort().at(-1);
+            return `
+              <a class="client-card" href="${href.space(space.folder)}">
+                <span class="client-card-main">
+                  ${avatar(space.folder, { size: "md", src: login?.avatar })}
+                  <span class="client-card-name">
+                    <strong>${esc(space.folder)}${updated(space.folder) ? `<span class="new-dot"></span>` : ""}</strong>
+                    ${login ? presenceLine(login) : `<span class="client-card-login client-card-none">No login yet</span>`}
+                  </span>
+                </span>
+                <span class="client-card-stats">
+                  <span>${svg("folder")}${new Set(mine.map((cut) => cut.project.name)).size} live</span>
+                  <span>${svg("film")}${mine.length}</span>
+                  ${latest ? `<span class="feed-when">${esc(relTime(latest))}</span>` : ""}
+                </span>
+              </a>`;
+          }).join("")}
+        </div>
+      </section>
+    </section>`;
 }
 
 // Admin: clients and their logins -----------------------------------------

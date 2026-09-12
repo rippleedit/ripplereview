@@ -1228,3 +1228,51 @@ body { overflow: hidden; }
 .handed--done .icon { color: #56dcb4; }
 .handover .button--ghost { border-color: var(--white-14); color: var(--white-52); }
 .handover .button--ghost:hover { border-color: var(--white-28); color: var(--white); background: none; }
+
+/* Home: the studio's one-look view ---------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 2rem;
+}
+.stat {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--white-08);
+  border-radius: var(--radius-media);
+  background: var(--black-soft);
+}
+.stat strong { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.stat span { font: 500 var(--fs-label) / 1.3 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--white-52); }
+
+.feed + .feed { margin-top: 2rem; }
+.feed .section-label { margin-bottom: 0.8rem; }
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 8px;
+  transition: background-color 180ms ease;
+}
+.feed-row:hover { background: rgba(242, 240, 234, 0.05); }
+.feed-main { display: grid; gap: 0.1rem; min-width: 0; }
+.feed-main strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; }
+.feed-main > span { overflow: hidden; color: var(--white-52); font-size: var(--fs-small); text-overflow: ellipsis; white-space: nowrap; }
+.feed-tail { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-left: auto; }
+.feed-when { display: inline-flex; align-items: center; gap: 0.3rem; font: 400 0.6875rem / 1.4 var(--font-mono); color: var(--white-28); white-space: nowrap; }
+.feed-when .icon { width: 0.8rem; height: 0.8rem; }
+.feed-empty { padding: 0.6rem 0.75rem; color: var(--white-28); font-size: var(--fs-small); }
+
+.client-card-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--white-08); }
+.client-card-stats > span { display: inline-flex; align-items: center; gap: 0.35rem; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-52); }
+.client-card-stats .icon { width: 0.85rem; height: 0.85rem; color: var(--white-28); }
+.client-card-stats .feed-when { margin-left: auto; }
+
+@media (max-width: 700px) {
+  .feed-tail { width: 100%; justify-content: flex-start; margin-left: 0; }
+  .feed-row { flex-wrap: wrap; }
+}
