@@ -257,9 +257,16 @@ body { overflow: hidden; }
 .side-link--client { font-weight: 600; }
 .side-link--client .side-link-name { font-weight: 600; }
 
-/* Projects read as separate blocks, not as a nested tree. */
-.side-group { display: grid; gap: 0.35rem; margin: 0.1rem 0 0.6rem; }
-.side-group--nested { margin-left: 0.5rem; }
+/* Projects read as separate blocks, hanging off the folder above them:
+   the rule starts under the folder icon so the nesting is obvious. */
+.side-group {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.7rem 1.15rem;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--white-08);
+}
+.side-group--nested { margin-left: 1.35rem; }
 .side-link--project {
   gap: 0.45rem;
   padding: 0.55rem 0.6rem;
