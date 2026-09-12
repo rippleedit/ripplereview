@@ -593,14 +593,13 @@ async function renderHome() {
   }
 
   const live = data.cuts.filter((cut) => !cut.finished);
-  const seenOf = (folder) => lastSeen(folder);
 
   // Work sitting with you: notes handed over, or open notes on a cut.
   const yours = live
     .filter((cut) => cut.status.kind === "notes" || cut.handed)
     .sort((a, b) => (b.handed?.created_at ?? "").localeCompare(a.handed?.created_at ?? "") || b.latest.modified.localeCompare(a.latest.modified));
 
-  // Work sitting with them: sent out, nothing back yet.
+  // Work sitting with them: sent out, nothing back yet. Longest wait first.
   const theirs = live
     .filter((cut) => cut.status.kind === "new" && !cut.handed)
     .sort((a, b) => a.latest.modified.localeCompare(b.latest.modified));
@@ -608,16 +607,31 @@ async function renderHome() {
   const approved = data.cuts.filter((cut) => cut.status.kind === "approved");
   const openNotes = data.summary.comments.filter((c) => !c.parent_id && !c.done).length;
   const projects = new Set(live.map((cut) => `${cut.folder}/${cut.project.name}`)).size;
+  const faceOf = (folder) => data.spaces.find((s) => s.folder === folder)?.logins.find((l) => l.avatar)?.avatar;
 
-  const row = (cut, tail) => `
-    <a class="feed-row" href="${href.video(cut.client, cut.latest.id)}">
-      ${avatar(cut.client, { src: data.spaces.find((s) => s.folder === cut.folder)?.logins.find((l) => l.avatar)?.avatar })}
-      <span class="feed-main">
-        <strong>${esc(cut.title.label)}</strong>
-        <span>${esc(cut.client)} · ${esc(parseTitle(cut.project.name).title)} · v${cut.latest.label}</span>
+  const card = (cut, when) => `
+    <a class="work-card" href="${href.video(cut.client, cut.latest.id)}">
+      <span class="video-thumb" data-thumb="${esc(cut.latest.path)}" data-id="${esc(cut.latest.id)}">
+        <span class="thumb-left">
+          <span class="chip chip--version">v${cut.latest.label}</span>
+          ${cut.handed ? `<span class="chip chip--new">Notes in</span>` : ""}
+        </span>
+        <span class="status status--${cut.status.kind}" title="${esc(cut.status.text)}">${cut.status.icon ? svg(cut.status.icon) : `<i></i>`}${esc(cut.status.short)}</span>
       </span>
-      ${tail}
+      <span class="work-meta">
+        <strong>${esc(cut.title.label)}</strong>
+        <span class="work-client">${avatar(cut.client, { src: faceOf(cut.folder) })}${esc(cut.client)} · ${esc(parseTitle(cut.project.name).title)}</span>
+        <span class="feed-when">${when(cut)}</span>
+      </span>
     </a>`;
+
+  const band = [
+    { label: "With you", value: yours.length, lead: true },
+    { label: "With clients", value: theirs.length },
+    { label: "Live projects", value: projects },
+    { label: "Open notes", value: openNotes },
+    { label: "Approved", value: approved.length },
+  ];
 
   view.innerHTML = `
     <section class="page">
@@ -626,38 +640,48 @@ async function renderHome() {
         <p class="page-sub">Everything in review, in one look.</p>
       </div>
 
-      <div class="stats">
-        ${[["Live projects", projects], ["With you", yours.length], ["With clients", theirs.length], ["Open notes", openNotes], ["Approved", approved.length]]
-          .map(([label, value]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join("")}
+      <div class="band">
+        ${band.map((item) => `
+          <div class="band-cell ${item.lead && item.value ? "is-lead" : ""}">
+            <strong>${item.value}</strong>
+            <span>${item.label}</span>
+          </div>`).join("")}
       </div>
 
-      <section class="feed">
-        <div class="section-label"><span class="section-label-text">With you</span><span class="section-label-count">${yours.length}</span></div>
-        ${yours.length ? yours.map((cut) => row(cut, `
-          <span class="feed-tail">
-            ${cut.handed ? `<span class="tag tag--code tag--mini">Notes in</span>` : ""}
-            <span class="status status--${cut.status.kind}">${cut.status.icon ? svg(cut.status.icon) : `<i></i>`}${esc(cut.status.short)}</span>
-            <span class="feed-when">${esc(relTime(cut.handed?.created_at ?? cut.latest.modified))}</span>
-          </span>`)).join("")
-        : `<p class="feed-empty">Nothing waiting on you. Enjoy it.</p>`}
+      <section class="home-block">
+        <div class="home-head">
+          <h2>With you</h2>
+          <span class="home-count">${yours.length}</span>
+          <p>Clients have sent these back.</p>
+        </div>
+        ${yours.length
+          ? `<div class="work-grid">${yours.map((cut) => card(cut, (c) => c.handed ? `Notes in ${esc(relTime(c.handed.created_at))}` : `Updated ${esc(relTime(c.latest.modified))}`)).join("")}</div>`
+          : `<p class="feed-empty">Nothing waiting on you. Enjoy it.</p>`}
       </section>
 
-      <section class="feed">
-        <div class="section-label"><span class="section-label-text">With clients</span><span class="section-label-count">${theirs.length}</span></div>
-        ${theirs.length ? theirs.map((cut) => row(cut, `
-          <span class="feed-tail">
-            <span class="feed-when">${svg("clock")} sent ${esc(relTime(cut.latest.modified))}</span>
-          </span>`)).join("")
-        : `<p class="feed-empty">Nothing out for review right now.</p>`}
+      <section class="home-block">
+        <div class="home-head">
+          <h2>With clients</h2>
+          <span class="home-count">${theirs.length}</span>
+          <p>Out for review, longest wait first.</p>
+        </div>
+        ${theirs.length
+          ? `<div class="work-grid">${theirs.map((cut) => card(cut, (c) => `${svg("clock")} sent ${esc(relTime(c.latest.modified))}`)).join("")}</div>`
+          : `<p class="feed-empty">Nothing out for review right now.</p>`}
       </section>
 
-      <section class="feed">
-        <div class="section-label"><span class="section-label-text">Clients</span><span class="section-label-count">${data.spaces.length}</span></div>
+      <section class="home-block">
+        <div class="home-head">
+          <h2>Clients</h2>
+          <span class="home-count">${data.spaces.length}</span>
+          <p>Everyone you work with.</p>
+        </div>
         <div class="client-grid">
           ${data.spaces.map((space) => {
             const mine = live.filter((cut) => cut.folder === space.folder);
             const login = space.logins[0];
             const latest = mine.map((cut) => cut.latest.modified).sort().at(-1);
+            const waiting = mine.filter((cut) => cut.status.kind === "notes" || cut.handed).length;
             return `
               <a class="client-card" href="${href.space(space.folder)}">
                 <span class="client-card-main">
@@ -666,6 +690,7 @@ async function renderHome() {
                     <strong>${esc(space.folder)}${updated(space.folder) ? `<span class="new-dot"></span>` : ""}</strong>
                     ${login ? presenceLine(login) : `<span class="client-card-login client-card-none">No login yet</span>`}
                   </span>
+                  ${waiting ? `<span class="tag tag--code tag--mini">${waiting}</span>` : ""}
                 </span>
                 <span class="client-card-stats">
                   <span>${svg("folder")}${new Set(mine.map((cut) => cut.project.name)).size} live</span>
@@ -677,6 +702,8 @@ async function renderHome() {
         </div>
       </section>
     </section>`;
+
+  fillThumbs([...view.querySelectorAll("[data-thumb]")]);
 }
 
 // Admin: clients and their logins -----------------------------------------
