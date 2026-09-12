@@ -32,11 +32,14 @@ export function toast(message) {
 // One status per video, from its latest version's notes and approval. Four
 // states, each with its own colour so a grid reads without being read.
 export function videoStatus(fileId, { comments, approvals }) {
-  if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", text: "Approved", icon: "check" };
+  // `short` rides on the frame, `text` explains it on hover.
+  if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", short: "Approved", text: "Approved", icon: "check" };
   const open = comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length;
-  if (open) return { kind: "notes", text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "message" };
+  if (open) return { kind: "notes", short: String(open), text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "message" };
   const any = comments.some((c) => c.file_id === fileId && !c.parent_id);
-  return any ? { kind: "done", text: "Notes done", icon: "check" } : { kind: "new", text: "Ready for review", icon: null };
+  return any
+    ? { kind: "done", short: "Done", text: "All notes done", icon: "check" }
+    : { kind: "new", short: "Review", text: "Ready for review", icon: null };
 }
 
 // Links, in one place: the sidebar, the lists and the review screen agree.

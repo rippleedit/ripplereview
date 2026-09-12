@@ -285,7 +285,7 @@ async function renderSpace(folder, only = null) {
             <span class="chip chip--version">v${latest.label}</span>
             ${fresh ? `<span class="chip chip--new">New</span>` : ""}
           </span>
-          <span class="status status--${status.kind}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.text)}</span>
+          <span class="status status--${status.kind}" title="${esc(status.text)}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.short)}</span>
         </div>
         <div class="video-meta">
           <span class="title-line">
