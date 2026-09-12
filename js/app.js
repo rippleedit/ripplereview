@@ -583,7 +583,32 @@ async function gatherHome() {
     cut.finished = finished.has(`${cut.folder.toLowerCase()}/${cut.project.name}`);
     cut.title = parseVideo(cut.video.title, parseTitle(cut.project.name).title);
   }
-  return { spaces, cuts, summary, finished };
+
+  // A project is the unit of work, so the overview counts in projects.
+  const jobs = new Map();
+  for (const cut of cuts) {
+    const key = `${cut.folder}/${cut.project.name}`;
+    if (!jobs.has(key)) {
+      const info = parseTitle(cut.project.name);
+      jobs.set(key, {
+        key, folder: cut.folder, client: cut.client, name: cut.project.name,
+        code: info.code, title: info.title, finished: cut.finished,
+        cuts: [], openNotes: 0, approved: 0, handedAt: null, modified: cut.project.modified,
+      });
+    }
+    const job = jobs.get(key);
+    job.cuts.push(cut);
+    job.openNotes += summary.comments.filter((c) => c.file_id === cut.latest.id && !c.parent_id && !c.done).length;
+    if (cut.status.kind === "approved") job.approved += 1;
+    if (cut.handed && (!job.handedAt || cut.handed.created_at > job.handedAt)) job.handedAt = cut.handed.created_at;
+  }
+  for (const job of jobs.values()) {
+    job.cuts.sort((a, b) => a.title.rank - b.title.rank || a.title.number - b.title.number);
+    job.cover = job.cuts[0];
+    job.waiting = job.openNotes > 0 || Boolean(job.handedAt);
+  }
+
+  return { spaces, cuts, jobs: [...jobs.values()], summary, finished };
 }
 
 async function renderHome() {
@@ -595,46 +620,41 @@ async function renderHome() {
     return renderMessage("Couldn't load your overview", error.message);
   }
 
-  const live = data.cuts.filter((cut) => !cut.finished);
+  const live = data.jobs.filter((job) => !job.finished);
+  const yours = live.filter((job) => job.waiting)
+    .sort((a, b) => (b.handedAt ?? "").localeCompare(a.handedAt ?? "") || b.modified.localeCompare(a.modified));
+  const theirs = live.filter((job) => !job.waiting && job.approved < job.cuts.length)
+    .sort((a, b) => a.modified.localeCompare(b.modified));
 
-  // Work sitting with you: notes handed over, or open notes on a cut.
-  const yours = live
-    .filter((cut) => cut.status.kind === "notes" || cut.handed)
-    .sort((a, b) => (b.handed?.created_at ?? "").localeCompare(a.handed?.created_at ?? "") || b.latest.modified.localeCompare(a.latest.modified));
-
-  // Work sitting with them: sent out, nothing back yet. Longest wait first.
-  const theirs = live
-    .filter((cut) => cut.status.kind === "new" && !cut.handed)
-    .sort((a, b) => a.latest.modified.localeCompare(b.latest.modified));
-
-  const approved = data.cuts.filter((cut) => cut.status.kind === "approved");
   const openNotes = data.summary.comments.filter((c) => !c.parent_id && !c.done).length;
-  const projects = new Set(live.map((cut) => `${cut.folder}/${cut.project.name}`)).size;
+  const approved = data.cuts.filter((cut) => cut.status.kind === "approved").length;
   const faceOf = (folder) => data.spaces.find((s) => s.folder === folder)?.logins.find((l) => l.avatar)?.avatar;
 
-  const card = (cut, when) => `
-    <a class="work-card" href="${href.video(cut.client, cut.latest.id)}">
-      <span class="video-thumb" data-thumb="${esc(cut.latest.path)}" data-id="${esc(cut.latest.id)}">
-        <span class="thumb-left">
-          <span class="chip chip--version">v${cut.latest.label}</span>
-          ${cut.handed ? `<span class="chip chip--new">Notes in</span>` : ""}
-        </span>
-        <span class="status status--${cut.status.kind}" title="${esc(cut.status.text)}">${cut.status.icon ? svg(cut.status.icon) : `<i></i>`}${esc(cut.status.short)}</span>
+  const stat = (value, label, lead = false) => `
+    <div class="stat ${lead && value ? "is-lead" : ""}">
+      <strong>${value}</strong>
+      <span>${label}</span>
+    </div>`;
+
+  const job = (item, line) => `
+    <a class="job-card" href="${href.project(item.client, item.name)}">
+      <span class="job-cover" data-thumb="${esc(item.cover.latest.path)}" data-id="${esc(item.cover.latest.id)}">
+        ${item.handedAt ? `<span class="chip chip--new">Notes in</span>` : ""}
       </span>
-      <span class="work-meta">
-        <strong>${esc(cut.title.label)}</strong>
-        <span class="work-client">${avatar(cut.client, { src: faceOf(cut.folder) })}${esc(cut.client)} · ${esc(parseTitle(cut.project.name).title)}</span>
-        <span class="feed-when">${when(cut)}</span>
+      <span class="job-body">
+        <span class="job-title">
+          ${item.code ? `<span class="tag tag--code tag--mini">${esc(item.code)}</span>` : ""}
+          <strong>${esc(item.title)}</strong>
+        </span>
+        <span class="job-client">${avatar(item.client, { src: faceOf(item.folder) })}${esc(item.client)}</span>
+        <span class="job-foot">
+          <span>${svg("film")}${item.cuts.length}</span>
+          ${item.openNotes ? `<span class="job-notes">${svg("message")}${item.openNotes}</span>` : ""}
+          ${item.approved ? `<span class="job-ok">${svg("check")}${item.approved}</span>` : ""}
+          <span class="feed-when">${line(item)}</span>
+        </span>
       </span>
     </a>`;
-
-  const band = [
-    { label: "With you", value: yours.length, lead: true },
-    { label: "With clients", value: theirs.length },
-    { label: "Live projects", value: projects },
-    { label: "Open notes", value: openNotes },
-    { label: "Approved", value: approved.length },
-  ];
 
   view.innerHTML = `
     <section class="page">
@@ -643,48 +663,36 @@ async function renderHome() {
         <p class="page-sub">Everything in review, in one look.</p>
       </div>
 
-      <div class="band">
-        ${band.map((item) => `
-          <div class="band-cell ${item.lead && item.value ? "is-lead" : ""}">
-            <strong>${item.value}</strong>
-            <span>${item.label}</span>
-          </div>`).join("")}
+      <div class="stats">
+        ${stat(yours.length, "With you", true)}
+        ${stat(theirs.length, "With clients")}
+        ${stat(live.length, "Live projects")}
+        ${stat(openNotes, "Open notes")}
+        ${stat(approved, "Approved cuts")}
       </div>
 
       <section class="home-block">
-        <div class="home-head">
-          <h2>With you</h2>
-          <span class="home-count">${yours.length}</span>
-          <p>Clients have sent these back.</p>
-        </div>
+        <div class="home-head"><h2>With you</h2><span class="home-count">${yours.length}</span><p>Clients have sent these back.</p></div>
         ${yours.length
-          ? `<div class="work-grid">${yours.map((cut) => card(cut, (c) => c.handed ? `Notes in ${esc(relTime(c.handed.created_at))}` : `Updated ${esc(relTime(c.latest.modified))}`)).join("")}</div>`
+          ? `<div class="job-grid">${yours.map((item) => job(item, (j) => j.handedAt ? `Notes in ${esc(relTime(j.handedAt))}` : `Updated ${esc(relTime(j.modified))}`)).join("")}</div>`
           : `<p class="feed-empty">Nothing waiting on you. Enjoy it.</p>`}
       </section>
 
       <section class="home-block">
-        <div class="home-head">
-          <h2>With clients</h2>
-          <span class="home-count">${theirs.length}</span>
-          <p>Out for review, longest wait first.</p>
-        </div>
+        <div class="home-head"><h2>With clients</h2><span class="home-count">${theirs.length}</span><p>Out for review, longest wait first.</p></div>
         ${theirs.length
-          ? `<div class="work-grid">${theirs.map((cut) => card(cut, (c) => `${svg("clock")} sent ${esc(relTime(c.latest.modified))}`)).join("")}</div>`
+          ? `<div class="job-grid">${theirs.map((item) => job(item, (j) => `${svg("clock")} sent ${esc(relTime(j.modified))}`)).join("")}</div>`
           : `<p class="feed-empty">Nothing out for review right now.</p>`}
       </section>
 
       <section class="home-block">
-        <div class="home-head">
-          <h2>Clients</h2>
-          <span class="home-count">${data.spaces.length}</span>
-          <p>Everyone you work with.</p>
-        </div>
+        <div class="home-head"><h2>Clients</h2><span class="home-count">${data.spaces.length}</span><p>Everyone you work with.</p></div>
         <div class="client-grid">
           ${data.spaces.map((space) => {
-            const mine = live.filter((cut) => cut.folder === space.folder);
+            const mine = live.filter((item) => item.folder === space.folder);
             const login = space.logins[0];
-            const latest = mine.map((cut) => cut.latest.modified).sort().at(-1);
-            const waiting = mine.filter((cut) => cut.status.kind === "notes" || cut.handed).length;
+            const latest = mine.map((item) => item.modified).sort().at(-1);
+            const waiting = mine.filter((item) => item.waiting).length;
             return `
               <a class="client-card" href="${href.space(space.folder)}">
                 <span class="client-card-main">
@@ -693,11 +701,11 @@ async function renderHome() {
                     <strong>${esc(space.folder)}${updated(space.folder) ? `<span class="new-dot"></span>` : ""}</strong>
                     ${login ? presenceLine(login) : `<span class="client-card-login client-card-none">No login yet</span>`}
                   </span>
-                  ${waiting ? `<span class="tag tag--code tag--mini">${waiting}</span>` : ""}
+                  ${waiting ? `<span class="tag tag--code tag--mini" title="${waiting} waiting on you">${waiting}</span>` : ""}
                 </span>
                 <span class="client-card-stats">
-                  <span>${svg("folder")}${new Set(mine.map((cut) => cut.project.name)).size} live</span>
-                  <span>${svg("film")}${mine.length}</span>
+                  <span>${svg("folder")}${mine.length} live</span>
+                  <span>${svg("film")}${mine.reduce((sum, item) => sum + item.cuts.length, 0)}</span>
                   ${latest ? `<span class="feed-when">${esc(relTime(latest))}</span>` : ""}
                 </span>
               </a>`;
