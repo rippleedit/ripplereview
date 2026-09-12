@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { esc, href, relTime, skeletons, spinner, toast, videoStatus } from "./ui.js";
+import { avatar, dialog, copyField, esc, href, relTime, skeletons, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -43,6 +43,8 @@ async function getLibrary(folder, fresh = false) {
 async function route() {
   cleanup?.();
   cleanup = null;
+  // A dialog left open belongs to the screen we are leaving.
+  document.querySelectorAll("dialog.sheet[open]").forEach((el) => el.close());
 
   profile = await api.session();
   if (!profile) return renderSignIn();
@@ -112,12 +114,13 @@ async function renderSidebar(r) {
   const body = profile.is_admin
     ? `<p class="side-label">Clients</p>
        ${clients ? clients.folders.map((f) => `
-          <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">${esc(f.folder)}</a>
+          <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">
+            ${avatar(f.folder)}<span>${esc(f.folder)}</span>
+          </a>
           ${folder?.toLowerCase() === f.folder.toLowerCase() ? projectLinks(f.folder) : ""}`).join("")
-         : `<div class="side-loading">${spinner()}</div>`}
-       <a class="side-item side-item--muted ${r.name === "home" ? "is-active" : ""}" href="#/">Manage logins</a>`
+         : `<div class="side-loading">${spinner()}</div>`}`
     : `<p class="side-label">Projects</p>
-       <a class="side-item ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">All projects</a>
+       <a class="side-item ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">${svg("folder")}<span>All projects</span></a>
        ${projectLinks(profile.client_folder)}`;
 
   sidebar.innerHTML = `
@@ -127,18 +130,20 @@ async function renderSidebar(r) {
       <img class="side-brand-mark" src="assets/ripplereview-mark.png" alt="Review">
     </a>
     <nav class="side-nav">${body}</nav>
-    <div class="side-foot">
-      <span class="side-user">${esc(profile.name || profile.email)}</span>
-      <button class="text-button" type="button" data-sign-out>Sign out</button>
-    </div>`;
+    ${profile.is_admin ? `
+      <div class="side-tools">
+        <a class="side-item side-item--tool ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("users")}<span>Manage logins</span></a>
+      </div>` : ""}
+    <button class="side-foot" type="button" data-profile>
+      ${avatar(profile.name || profile.email, { studio: profile.is_admin })}
+      <span class="side-me">
+        <strong>${esc(profile.name || profile.email)}</strong>
+        <small>${profile.is_admin ? "Studio" : "Client"}</small>
+      </span>
+      ${svg("settings", "side-foot-icon")}
+    </button>`;
 
-  sidebar.querySelector("[data-sign-out]").addEventListener("click", async () => {
-    await api.signOut();
-    clients = null;
-    libraries.clear();
-    location.hash = "#/";
-    route();
-  });
+  sidebar.querySelector("[data-profile]").addEventListener("click", profileDialog);
 
   // Fill in what we don't have yet, then draw again.
   if (profile.is_admin && !clients) {
@@ -304,6 +309,46 @@ async function fillThumbs(slots) {
   }
 }
 
+// Me -------------------------------------------------------------------
+
+async function profileDialog() {
+  let name = profile.name;
+  const save = await dialog({
+    title: "You",
+    confirmLabel: "Save name",
+    cancelLabel: "Close",
+    body: `
+      <div class="sheet-person">
+        ${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md" })}
+        <div><strong>${esc(profile.name || profile.email)}</strong><span>${esc(profile.email)}</span></div>
+      </div>
+      <div class="form">
+        <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
+      </div>
+      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees next to your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
+      <div class="sheet-signout"><button class="text-button" type="button" data-sign-out>Sign out</button></div>`,
+    onOpen: (el) => {
+      const input = el.querySelector("input[name=name]");
+      input.addEventListener("input", () => { name = input.value.trim(); });
+      input.focus();
+      el.querySelector("[data-sign-out]").addEventListener("click", async () => {
+        el.close();
+        await api.signOut();
+        clients = null;
+        libraries.clear();
+        location.hash = "#/";
+        route();
+      });
+    },
+  });
+  if (!save || name === profile.name) return;
+  try {
+    profile = await api.setName(name);
+    await renderSidebar(parseRoute());
+    toast("Name saved");
+  } catch (error) { toast(error.message); }
+}
+
 // Admin: clients and their logins -----------------------------------------
 
 function generatePassword() {
@@ -312,15 +357,127 @@ function generatePassword() {
   return `${pick()}-${pick()}-${pick()}-${10 + (crypto.getRandomValues(new Uint32Array(1))[0] % 90)}`;
 }
 
-function loginMessage(email, password) {
-  return `Your RippleReview login\n\n${location.origin}${location.pathname}\nEmail: ${email}\nPassword: ${password}`;
+const appUrl = () => `${location.origin}${location.pathname}`;
+
+function inviteText(email, password) {
+  return [
+    `Your RippleReview login`,
+    ``,
+    appUrl(),
+    `Email: ${email}`,
+    ...(password ? [`Password: ${password}`] : []),
+  ].join("\n");
 }
 
-function showHandoff(email, password) {
-  const box = view.querySelector("[data-handoff]");
-  if (!box) return;
-  box.hidden = false;
-  box.querySelector("[data-handoff-text]").textContent = loginMessage(email, password);
+// With a password: the one moment it can be read. Without: the details
+// minus the password, which nobody can look up after it is set.
+async function inviteDialog(folder, login, password) {
+  const email = login.email;
+  const reset = await dialog({
+    title: `Invite for ${folder}`,
+    confirmLabel: password ? "Done" : "Set a new password",
+    cancelLabel: password ? "" : "Close",
+    body: `
+      ${copyField("Message to send", inviteText(email, password), { block: true })}
+      ${copyField("Email", email)}
+      ${password ? copyField("Password", password) : ""}
+      <p class="sheet-note">${svg("alert")}<span>${password
+        ? "Copy it now. Passwords are stored scrambled, so this one can't be shown again — you'd have to set a new one."
+        : "Their password can't be shown: it's stored scrambled, which is what keeps it safe. If they've lost it, set a new one and send that."}</span></p>`,
+    onOpen: wireCopy,
+  });
+  if (!password && reset) await resetPasswordDialog(folder, login);
+}
+
+async function addClientDialog() {
+  let created = null;
+  await dialog({
+    title: "Add a client",
+    confirmLabel: "Create login",
+    body: `
+      <div class="form">
+        <label><span>Client name</span><input name="folder" placeholder="e.g. Nordbeats" autocomplete="off" required></label>
+        <label><span>Email</span><input name="email" type="email" autocomplete="off" required></label>
+        <label><span>Password</span>
+          <span class="input-with-button">
+            <input name="password" value="${generatePassword()}" minlength="8" autocomplete="off" required>
+            <button class="text-button" type="button" data-generate>New</button>
+          </span>
+        </label>
+      </div>
+      <p class="sheet-note" data-note>${svg("folder")}<span>Creates their Dropbox folder if it isn't there yet.</span></p>`,
+    onOpen: (el) => {
+      const form = el.querySelector("form");
+      const note = el.querySelector("[data-note] span");
+      el.querySelector("[data-generate]").addEventListener("click", () => { form.password.value = generatePassword(); });
+      form.folder.addEventListener("input", () => {
+        const name = form.folder.value.trim();
+        note.textContent = name ? `Uses Dropbox/Apps/RippleReview/${name}, created if it isn't there yet.` : "Creates their Dropbox folder if it isn't there yet.";
+      });
+      form.folder.focus();
+      // Keep the dialog open while the login is being created.
+      form.addEventListener("submit", async (event) => {
+        if (el.returnValue === "cancel" || event.submitter?.value !== "confirm") return;
+        event.preventDefault();
+        const fields = { folder: form.folder.value.trim(), name: form.folder.value.trim(), email: form.email.value.trim(), password: form.password.value };
+        if (!fields.folder || !fields.email || fields.password.length < 8) return;
+        const button = event.submitter;
+        button.disabled = true;
+        button.textContent = "Creating…";
+        try {
+          await api.createClient(fields);
+          created = fields;
+          el.close();
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+          button.textContent = "Create login";
+        }
+      });
+    },
+  });
+  if (!created) return;
+  clients = null;
+  await renderClients();
+  await renderSidebar(parseRoute());
+  await inviteDialog(created.folder, { email: created.email }, created.password);
+}
+
+async function resetPasswordDialog(folder, login) {
+  const password = generatePassword();
+  const ok = await dialog({
+    title: "New password",
+    confirmLabel: "Set new password",
+    danger: true,
+    body: `
+      <p>${esc(login.email)} gets a new password. Their current one stops working straight away.</p>
+      ${copyField("New password", password)}`,
+    onOpen: wireCopy,
+  });
+  if (!ok) return;
+  try {
+    await api.setPassword(login.id, password);
+    await inviteDialog(folder, login, password);
+  } catch (error) { toast(error.message); }
+}
+
+async function removeLoginDialog(login) {
+  const ok = await dialog({
+    title: "Remove this login?",
+    confirmLabel: "Remove login",
+    danger: true,
+    body: `
+      <p><strong>${esc(login.email)}</strong> won't be able to sign in any more.</p>
+      <p class="sheet-note">${svg("alert")}<span>Their notes stay, and nothing in your Dropbox is touched.</span></p>`,
+  });
+  if (!ok) return;
+  try {
+    await api.removeLogin(login.id);
+    clients = null;
+    await renderClients();
+    await renderSidebar(parseRoute());
+    toast("Login removed");
+  } catch (error) { toast(error.message); }
 }
 
 async function renderClients() {
@@ -332,118 +489,70 @@ async function renderClients() {
     return renderMessage("Couldn't load clients", error.message);
   }
 
-  const loginRow = (login) => `
-    <li class="login-row">
-      <span class="login-email">${esc(login.email)}</span>
-      <span class="login-actions">
-        <button class="text-button" type="button" data-new-password="${esc(login.id)}" data-email="${esc(login.email)}">New password</button>
-        <button class="text-button text-button--danger" type="button" data-remove-login="${esc(login.id)}" data-email="${esc(login.email)}">Remove</button>
+  const row = (folder, login) => `
+    <div class="row" data-folder="${esc(folder)}">
+      ${avatar(folder, { size: "md" })}
+      <a class="row-name" href="${href.space(folder)}">
+        <strong>${esc(folder)}</strong>
+        <span>Apps/RippleReview/${esc(folder)}</span>
+      </a>
+      <span class="row-detail ${login ? "" : "row-detail--none"}">${login ? esc(login.email) : "No login yet"}</span>
+      <span class="row-actions">
+        ${login ? `
+          <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
+          <button class="icon-button" type="button" data-reset="${esc(login.id)}" title="New password" aria-label="New password for ${esc(folder)}">${svg("key")}</button>
+          <button class="icon-button" type="button" data-remove="${esc(login.id)}" title="Remove login" aria-label="Remove login for ${esc(folder)}">${svg("trash")}</button>`
+        : `<button class="button button--compact" type="button" data-add-for="${esc(folder)}">Add login</button>`}
       </span>
-    </li>`;
+    </div>`;
+
+  const rows = data.folders.flatMap((f) => f.logins.length ? f.logins.map((l) => row(f.folder, l)) : [row(f.folder, null)]).join("");
 
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
         <h1 class="page-title">Clients</h1>
-        <p class="page-sub">One folder per client in Dropbox/Apps/RippleReview. Each login only ever sees its own folder.</p>
-      </div>
-
-      <div class="clients-layout">
-        <div class="client-grid">
-          ${data.folders.map((f) => `
-            <article class="client-card">
-              <a class="client-card-head" href="${href.space(f.folder)}">
-                <h2>${esc(f.folder)}</h2><span aria-hidden="true">→</span>
-              </a>
-              ${f.logins.length
-                ? `<ul class="login-list">${f.logins.map(loginRow).join("")}</ul>`
-                : `<p class="client-card-empty">No login yet. Add one on the right, using this exact name.</p>`}
-            </article>`).join("") || `<div class="empty"><p>No clients yet.</p><p class="empty-sub">Add your first one on the right.</p></div>`}
-          ${data.orphans.length ? `
-            <article class="client-card client-card--warn">
-              <h2>Logins without a folder</h2>
-              <p class="client-card-empty">These logins point at a folder that no longer exists in Dropbox.</p>
-              <ul class="login-list">${data.orphans.map(loginRow).join("")}</ul>
-            </article>` : ""}
+        <p class="page-sub">Each login only ever sees its own folder.</p>
+        <div class="page-actions">
+          <button class="button button--solid button--compact" type="button" data-add-client>${svg("plus")} Add client</button>
         </div>
-
-        <aside class="panel">
-          <div class="section-label"><span class="section-label-text">Add a client login</span></div>
-          <form class="form" data-add-client>
-            <label><span>Client name</span><input name="folder" required placeholder="e.g. Nordbeats" autocomplete="off"></label>
-            <label><span>Email</span><input name="email" type="email" required autocomplete="off"></label>
-            <label><span>Password</span>
-              <span class="input-with-button">
-                <input name="password" required minlength="8" autocomplete="off" value="${generatePassword()}">
-                <button class="text-button" type="button" data-generate>New</button>
-              </span>
-            </label>
-            <p class="form-note" data-folder-note>Creates the Dropbox folder if it doesn't exist.</p>
-            <div class="form-submit-row">
-              <button class="button button--solid" type="submit">Create login <span aria-hidden="true">→</span></button>
-              <p class="form-status" role="status" data-status></p>
-            </div>
-          </form>
-          <div class="handoff" data-handoff hidden>
-            <p class="handoff-title">Send this to your client</p>
-            <pre data-handoff-text></pre>
-            <button class="button button--compact" type="button" data-copy>Copy</button>
-          </div>
-        </aside>
       </div>
+
+      ${rows ? `<div class="rows">${rows}</div>` : `<div class="empty"><p>No clients yet.</p><p class="empty-sub">Add your first one to create their folder and login.</p></div>`}
+
+      ${data.orphans.length ? `
+        <div class="page-head" style="margin-top:2rem"><h2 class="page-title">Logins without a folder</h2><p class="page-sub">The Dropbox folder these point at is gone.</p></div>
+        <div class="rows">${data.orphans.map((l) => `
+          <div class="row">
+            ${avatar(l.client_folder || l.email, { size: "md" })}
+            <span class="row-name"><strong>${esc(l.client_folder || "—")}</strong></span>
+            <span class="row-detail">${esc(l.email)}</span>
+            <span class="row-actions">
+              <button class="icon-button" type="button" data-reset="${esc(l.id)}" title="New password">${svg("key")}</button>
+              <button class="icon-button" type="button" data-remove="${esc(l.id)}" title="Remove login">${svg("trash")}</button>
+            </span>
+          </div>`).join("")}</div>` : ""}
     </section>`;
 
-  const form = view.querySelector("[data-add-client]");
-  const note = view.querySelector("[data-folder-note]");
-  form.folder.addEventListener("input", () => {
-    const name = form.folder.value.trim();
-    note.textContent = name ? `Uses Dropbox/Apps/RippleReview/${name} (created if missing).` : "Creates the Dropbox folder if it doesn't exist.";
-  });
-  view.querySelector("[data-generate]").addEventListener("click", () => { form.password.value = generatePassword(); });
+  const findLogin = (id) => [...data.folders.flatMap((f) => f.logins.map((l) => ({ ...l, folder: f.folder }))), ...data.orphans.map((l) => ({ ...l, folder: l.client_folder }))].find((l) => l.id === id);
 
-  view.querySelector("[data-copy]").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(view.querySelector("[data-handoff-text]").textContent);
-    toast("Copied");
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const status = form.querySelector("[data-status]");
-    const fields = { folder: form.folder.value.trim(), name: form.folder.value.trim(), email: form.email.value.trim(), password: form.password.value };
-    status.innerHTML = spinner("Creating");
-    try {
-      await api.createClient(fields);
-      clients = null;
-      await renderClients();
-      await renderSidebar(parseRoute());
-      showHandoff(fields.email, fields.password);
-      toast(`Login created for ${fields.folder}`);
-    } catch (error) {
-      status.textContent = error.message;
-    }
-  });
-
-  view.querySelector(".client-grid")?.addEventListener("click", async (event) => {
-    const reset = event.target.closest("[data-new-password]");
-    const remove = event.target.closest("[data-remove-login]");
-    if (reset) {
-      const password = generatePassword();
-      if (!confirm(`Give ${reset.dataset.email} a new password?\n\n${password}\n\nTheir old one stops working.`)) return;
-      try {
-        await api.setPassword(reset.dataset.newPassword, password);
-        showHandoff(reset.dataset.email, password);
-        toast("Password changed");
-      } catch (error) { toast(error.message); }
-    }
-    if (remove) {
-      if (!confirm(`Remove the login ${remove.dataset.email}?\n\nTheir notes stay. Their videos in Dropbox are not touched.`)) return;
-      try {
-        await api.removeLogin(remove.dataset.removeLogin);
-        clients = null;
-        await renderClients();
-        await renderSidebar(parseRoute());
-        toast("Login removed");
-      } catch (error) { toast(error.message); }
+  const page = view.querySelector(".page");
+  page.querySelector("[data-add-client]").addEventListener("click", addClientDialog);
+  page.addEventListener("click", async (event) => {
+    const invite = event.target.closest("[data-invite]");
+    const reset = event.target.closest("[data-reset]");
+    const remove = event.target.closest("[data-remove]");
+    const addFor = event.target.closest("[data-add-for]");
+    if (invite) {
+      const login = findLogin(invite.dataset.invite);
+      await inviteDialog(login.folder, login, null);
+    } else if (reset) {
+      const login = findLogin(reset.dataset.reset);
+      await resetPasswordDialog(login.folder, login);
+    } else if (remove) {
+      await removeLoginDialog(findLogin(remove.dataset.remove));
+    } else if (addFor) {
+      await addClientDialog();
     }
   });
 }

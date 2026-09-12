@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, FRAME_RATES, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { esc, href, relTime, spinner, toast } from "./ui.js";
+import { avatar, dialog, esc, href, relTime, spinner, svg, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -448,7 +448,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     renderNotes();
   });
 
-  const authorLabel = (c) => `<span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(c.author_name || "Someone")}</span>`;
+  const authorLabel = (c) => `
+    <span class="note-who">
+      ${avatar(c.author_name, { studio: c.author_is_admin })}
+      <span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(c.author_name || "Someone")}</span>
+    </span>`;
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
 
   function renderNotes() {
@@ -504,7 +508,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
     const del = event.target.closest("[data-delete]");
     if (del) {
-      if (!confirm("Delete this note?")) return;
+      const ok = await dialog({ title: "Delete this note?", confirmLabel: "Delete", danger: true,
+        body: `<p>It disappears for everyone, along with its replies.</p>` });
+      if (!ok) return;
       try {
         await api.deleteComment(del.dataset.delete);
         state.comments = state.comments.filter((c) => c.id !== del.dataset.delete && c.parent_id !== del.dataset.delete);
@@ -593,7 +599,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         state.approval = await api.approve(fileId, library.client);
         toast("Approved. Thank you!");
       } else if (event.target.closest("[data-unapprove]")) {
-        if (!confirm("Withdraw the approval for this version?")) return;
+        const ok = await dialog({ title: "Withdraw approval?", confirmLabel: "Withdraw", danger: true,
+          body: `<p>This version goes back to waiting for review.</p>` });
+        if (!ok) return;
         await api.unapprove(fileId);
         state.approval = null;
       } else return;

@@ -233,8 +233,10 @@ body { overflow: hidden; }
 }
 
 .side-item {
-  display: block;
-  padding: 0.5rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
   border-radius: 6px;
   font-size: var(--fs-small);
   font-weight: 500;
@@ -243,7 +245,13 @@ body { overflow: hidden; }
 }
 .side-item:hover { background: var(--white-08); color: var(--white); }
 .side-item.is-active { background: var(--white-08); color: var(--white); }
-.side-item--muted { margin-top: 0.5rem; color: var(--white-52); }
+.side-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-item .icon { flex: none; font-size: 1rem; color: var(--white-52); }
+.side-item.is-active .icon { color: var(--white); }
+
+/* Studio settings sit apart from the client list, with the rule between. */
+.side-tools { flex: none; padding: 0.5rem 0.6rem; border-top: 1px solid var(--white-08); }
+.side-item--tool { color: var(--white-52); }
 
 .side-sub { display: grid; gap: 0.1rem; margin: 0.15rem 0 0.5rem; padding: 0 0 0 0.6rem; list-style: none; }
 .side-sub-item {
@@ -266,20 +274,23 @@ body { overflow: hidden; }
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
   border-top: 1px solid var(--white-08);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease;
 }
-.side-user {
-  overflow: hidden;
-  font: 500 var(--fs-label) / 1.3 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--white-52);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.side-foot:hover { background: var(--white-08); }
+.side-me { display: grid; gap: 0.1rem; min-width: 0; }
+.side-me strong { overflow: hidden; font-size: 0.8125rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.side-me small { font: 500 0.625rem / 1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--white-28); }
+.side-foot-icon { margin-left: auto; font-size: 1rem; color: var(--white-28); }
+.side-foot:hover .side-foot-icon { color: var(--white-76); }
+.sheet-signout { display: flex; justify-content: flex-start; padding-top: 0.2rem; }
 
 .app-main { display: flex; flex-direction: column; min-width: 0; height: 100svh; }
 
@@ -819,9 +830,7 @@ body { overflow: hidden; }
 .note-done input { width: 15px; height: 15px; margin: 0; accent-color: var(--signal); cursor: pointer; }
 .note-body { font-size: var(--fs-body); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note.is-done > .note-body { color: var(--white-52); }
-.note-by { color: var(--white-52); font-size: 0.75rem; }
-.note-author { color: var(--white-76); font-weight: 600; }
-.note-author--studio { color: var(--signal); }
+.note-by { display: flex; align-items: center; gap: 0.4rem; color: var(--white-52); font-size: 0.75rem; }
 .note-actions { display: flex; gap: 1rem; }
 .replies { display: grid; gap: 0.7rem; margin: 0.2rem 0 0; padding: 0 0 0 0.9rem; border-left: 1px solid var(--white-14); list-style: none; }
 .reply { display: grid; gap: 0.25rem; }
@@ -849,3 +858,87 @@ body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* People, dialogs and lists ------------------------------------------------ */
+
+.icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--tint) 55%, transparent);
+  background: color-mix(in srgb, var(--tint) 18%, transparent);
+  color: var(--tint);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.avatar--sm { width: 1.6rem; height: 1.6rem; font-size: 0.625rem; }
+.avatar--md { width: 2.4rem; height: 2.4rem; font-size: 0.8125rem; }
+
+/* The clients list: one row per client, scannable top to bottom. */
+.rows { display: grid; border: 1px solid var(--white-08); border-radius: var(--radius-media); overflow: hidden; }
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.2fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--black-soft);
+  transition: background-color 160ms ease;
+}
+.row + .row { border-top: 1px solid var(--white-08); }
+.row:hover { background: #121212; }
+.row-name { display: grid; gap: 0.15rem; min-width: 0; }
+.row-name strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; }
+.row-name span, .row-detail { color: var(--white-52); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.row-detail--none { color: var(--signal); }
+.row-actions { display: flex; align-items: center; gap: 0.5rem; }
+.row-actions .icon-button { font-size: 1rem; }
+
+.page-actions { display: flex; gap: 0.6rem; margin-left: auto; }
+
+/* Dialogs in the app's own voice, replacing the browser's boxes. */
+.sheet {
+  width: min(480px, calc(100vw - 2rem));
+  max-height: calc(100svh - 4rem);
+  padding: 0;
+  border: 1px solid var(--white-14);
+  border-radius: var(--radius-media);
+  background: var(--panel);
+  color: var(--white);
+  box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.95);
+}
+.sheet::backdrop { background: rgba(4, 4, 4, 0.72); backdrop-filter: blur(6px); }
+.sheet[open] { animation: sheet-in 260ms var(--ease-out); }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+.sheet-inner { display: grid; max-height: calc(100svh - 4rem); grid-template-rows: auto minmax(0, 1fr) auto; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.1rem; border-bottom: 1px solid var(--white-08); }
+.sheet-head h2 { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; }
+.sheet-body { display: grid; gap: 1.1rem; padding: 1.2rem 1.1rem; overflow-y: auto; }
+.sheet-body p { color: var(--white-76); font-size: var(--fs-body); line-height: 1.55; }
+.sheet-body .form { gap: 1.2rem; }
+.sheet-foot { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.9rem 1.1rem; border-top: 1px solid var(--white-08); }
+.sheet-person { display: flex; align-items: center; gap: 0.75rem; }
+.sheet-person div { display: grid; gap: 0.1rem; }
+.sheet-person strong { font-size: 0.95rem; }
+.sheet-person span { color: var(--white-52); font-size: var(--fs-small); }
+.button--danger { background: var(--signal); border-color: var(--signal); color: var(--white); }
+.button--danger:hover { background: #ff5a35; border-color: #ff5a35; }
+.sheet-note { display: flex; gap: 0.6rem; color: var(--white-52); font-size: var(--fs-small); line-height: 1.5; }
+.sheet-note .icon { flex: none; margin-top: 0.15rem; color: var(--white-28); font-size: 1rem; }
+
+.copy-field { display: grid; gap: 0.4rem; }
+.copy-label { font: 500 var(--fs-label) / 1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--white-52); }
+.copy-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.6rem 0.55rem 0.8rem; border: 1px solid var(--white-14); border-radius: var(--radius-small); background: var(--black); }
+.copy-value { flex: 1; min-width: 0; margin: 0; font-family: var(--font-mono); font-size: 0.8125rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.copy-field--block .copy-row { align-items: flex-start; }
+.copy-field--block .copy-value { line-height: 1.6; }
+
+/* Notes: who is speaking, at a glance. */
+.note-who { display: flex; align-items: center; gap: 0.5rem; }
+.note-author { color: var(--white-76); font-weight: 600; }
+.note-author--studio { color: var(--signal); }

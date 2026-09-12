@@ -78,6 +78,11 @@ async function realApi() {
       check(await sb.from("approvals").delete().eq("file_id", fileId));
     },
 
+    async setName(name) {
+      profile = (await server("set_name", { name })).profile;
+      return profile;
+    },
+
     clients: () => server("clients"),
     createClient: (fields) => server("create_client", fields),
     setPassword: (userId, password) => server("set_password", { userId, password }),

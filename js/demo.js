@@ -141,6 +141,11 @@ export function demoApi() {
       save();
     },
 
+    async setName(name) {
+      me = { ...me, name };
+      return wait(me);
+    },
+
     clients: () => wait({
       folders: [
         { folder: "Kxng Beats", logins: [] },
