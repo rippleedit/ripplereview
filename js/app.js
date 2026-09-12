@@ -279,15 +279,17 @@ async function renderSpace(folder, only = null) {
     return `
       <a class="video-card ${fresh ? "is-new" : ""}" style="--ar:${guessRatio(cut)};--i:${index}" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
-          <span class="chip chip--version">v${latest.label}</span>
-          ${fresh ? `<span class="chip chip--new">New</span>` : ""}
+          <span class="thumb-left">
+            <span class="chip chip--version">v${latest.label}</span>
+            ${fresh ? `<span class="chip chip--new">New</span>` : ""}
+          </span>
+          <span class="status status--${status.kind}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.text)}</span>
         </div>
         <div class="video-meta">
           <span class="title-line">
             <h3>${esc(cut.label)}</h3>
           </span>
           ${cut.extra ? `<p class="video-extra">${esc(cut.extra)}</p>` : ""}
-          <span class="status status--${status.kind}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.text)}</span>
           <p class="video-sub">${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</p>
         </div>
       </a>`;

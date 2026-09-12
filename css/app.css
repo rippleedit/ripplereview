@@ -544,7 +544,20 @@ body { overflow: hidden; }
 .video-thumb { transition: height 320ms var(--ease-out), width 320ms var(--ease-out), border-color 300ms ease, box-shadow 420ms var(--ease-out), transform 420ms var(--ease-out); }
 .video-card { transition: width 320ms var(--ease-out); }
 @keyframes fade-in { from { opacity: 0; } }
-.video-thumb .chip { position: absolute; top: 0.7rem; left: 0.7rem; }
+/* Version and state ride on the frame: what it is on the left, where it
+   stands on the right. Both sit on a blur so they read over any footage. */
+.thumb-left { position: absolute; top: 0.6rem; left: 0.6rem; display: flex; gap: 0.3rem; }
+.video-thumb .status {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  max-width: calc(100% - 1.2rem);
+  backdrop-filter: blur(8px);
+}
+.video-thumb .status--new { border-color: transparent; background: rgba(255, 61, 23, 0.92); color: var(--white); }
+.video-thumb .status--notes { border-color: rgba(242, 240, 234, 0.22); background: rgba(5, 5, 5, 0.66); color: var(--white); }
+.video-thumb .status--done { border-color: rgba(242, 240, 234, 0.14); background: rgba(5, 5, 5, 0.6); color: var(--white-52); }
+.video-thumb .status--approved { border-color: transparent; background: rgba(62, 207, 166, 0.92); color: #06231b; }
 .video-card:hover .video-thumb {
   transform: translateY(-3px);
   border-color: var(--white-28);
@@ -582,7 +595,7 @@ body { overflow: hidden; }
 /* Signed off. */
 .status--approved { border-color: rgba(62, 207, 166, 0.4); background: rgba(62, 207, 166, 0.12); color: #3ecfa6; }
 
-.chip--new { position: absolute; top: 0.6rem; right: 0.6rem; border-color: var(--signal); background: var(--signal); color: var(--white); }
+.chip--new { border-color: var(--signal); background: var(--signal); color: var(--white); }
 .new-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 3px rgba(255, 61, 23, 0.18); }
 .client-card-name strong .new-dot { display: inline-block; margin-left: 0.4rem; vertical-align: middle; }
 
