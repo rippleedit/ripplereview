@@ -280,7 +280,8 @@ async function renderSpace(folder, only = null) {
   renderSidebar(parseRoute());
   renderCrumbs(parseRoute());
 
-  const projects = only ? library.projects.filter((p) => p.name === only) : library.projects;
+  const all = profile.is_admin ? library.projects : library.projects.filter((p) => !p.empty);
+  const projects = only ? all.filter((p) => p.name === only) : all;
   const videos = projects.flatMap((p) => p.videos);
   const latestIds = videos.map((v) => v.versions.at(-1).id);
   const [summary, submissions] = await Promise.all([
@@ -361,7 +362,9 @@ async function renderSpace(folder, only = null) {
                   ${svg(finished ? "undo" : "check")}
                 </button>` : ""}
             </div>`}
-          <div class="project-body"><div class="video-grid">${sortCuts(project).map((video, i) => card(video, info.title, i)).join("")}</div></div>
+          <div class="project-body"><div class="video-grid">${project.videos.length
+            ? sortCuts(project).map((video, i) => card(video, info.title, i)).join("")
+            : `<p class="feed-empty">No videos in this project yet. Drop one into Dropbox/Apps/RippleReview/${esc(library.client)}/${esc(project.name)}/ and hit refresh.</p>`}</div></div>
         </section>`;
       }).join("") : `
         <div class="empty">

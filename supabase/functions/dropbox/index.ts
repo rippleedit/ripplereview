@@ -136,6 +136,15 @@ async function library(profile: Profile, requested: unknown) {
   const entries = await listAll(root, true);
   const projects = new Map<string, any>();
 
+  // Folders sitting directly in the client's space are projects, even before
+  // a single cut has been dropped in - otherwise a new job looks missing.
+  for (const entry of entries) {
+    if (entry[".tag"] !== "folder") continue;
+    const parts = entry.path_display.split("/").slice(2);
+    if (parts.length !== 1) continue;
+    projects.set(parts[0], { name: parts[0], videos: new Map() });
+  }
+
   for (const entry of entries) {
     if (entry[".tag"] !== "file" || !VIDEO.test(entry.name)) continue;
     const parts = entry.path_display.split("/").slice(2); // drop "" and the client folder
@@ -168,7 +177,7 @@ async function library(profile: Profile, requested: unknown) {
       return video;
     });
     videos.sort((a, b) => b.modified.localeCompare(a.modified));
-    return { name: project.name, modified: latest(videos), videos };
+    return { name: project.name, modified: latest(videos), videos, empty: videos.length === 0 };
   });
   out.sort((a, b) => b.modified.localeCompare(a.modified));
   return { client: folder, projects: out };
