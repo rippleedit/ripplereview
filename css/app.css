@@ -967,8 +967,11 @@ body { overflow: hidden; }
 .row:hover { background: #121212; }
 .row-name { display: grid; gap: 0.15rem; min-width: 0; }
 .row-name strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; }
-.row-name span, .row-detail { color: var(--white-52); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.row-name span { color: var(--white-52); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.row-detail { color: var(--white-28); font: 400 0.75rem / 1.4 var(--font-mono); overflow-wrap: anywhere; }
 .row-detail--none { color: var(--signal); }
+.sheet-choice { display: flex; align-items: flex-start; gap: 0.6rem; font-size: var(--fs-small); color: var(--white-76); cursor: pointer; }
+.sheet-choice input { width: 16px; height: 16px; margin: 0.15rem 0 0; accent-color: var(--signal); }
 .row-actions { display: flex; align-items: center; gap: 0.5rem; }
 .row-actions .icon-button { font-size: 1rem; }
 

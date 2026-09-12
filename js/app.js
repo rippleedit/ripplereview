@@ -573,17 +573,22 @@ async function resetPasswordDialog(folder, login) {
 }
 
 async function removeLoginDialog(login) {
+  let purge = false;
   const ok = await dialog({
-    title: "Remove this login?",
-    confirmLabel: "Remove login",
+    title: `Delete ${login.folder}?`,
+    confirmLabel: "Delete login",
     danger: true,
     body: `
-      <p><strong>${esc(loginName(login.email))}</strong> won't be able to sign in any more.</p>
-      <p class="sheet-note">${svg("alert")}<span>Their notes stay, and nothing in your Dropbox is touched.</span></p>`,
+      <p>The login <strong>${esc(loginName(login.email))}</strong> is deleted for good and can't sign in again.</p>
+      <label class="sheet-choice"><input type="checkbox" data-purge><span>Also delete every note and approval in their space</span></label>
+      <p class="sheet-note">${svg("folder")}<span>Their Dropbox folder and videos are never touched. Delete those in Finder if you want them gone.</span></p>`,
+    onOpen: (el) => {
+      el.querySelector("[data-purge]").addEventListener("change", (event) => { purge = event.target.checked; });
+    },
   });
   if (!ok) return;
   try {
-    await api.removeLogin(login.id);
+    await api.removeLogin(login.id, purge);
     clients = null;
     await renderClients();
     await renderSidebar(parseRoute());

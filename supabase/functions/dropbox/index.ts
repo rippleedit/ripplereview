@@ -309,8 +309,20 @@ async function setPassword(profile: Profile, body: any) {
 
 async function removeLogin(profile: Profile, body: any) {
   requireAdmin(profile);
-  if (body.userId === profile.id) throw new HttpError(400, "You can't remove your own login.");
-  const { error } = await db.auth.admin.deleteUser(String(body.userId));
+  const userId = String(body.userId ?? "");
+  if (userId === profile.id) throw new HttpError(400, "You can't remove your own login.");
+
+  // Optionally wipe what they left behind, before the profile row goes.
+  if (body.purge) {
+    const { data: target } = await db.from("profiles").select("client_folder").eq("id", userId).single();
+    const folder = target?.client_folder?.toLowerCase();
+    if (folder) {
+      await db.from("comments").delete().eq("client_folder", folder);
+      await db.from("approvals").delete().eq("client_folder", folder);
+    }
+  }
+
+  const { error } = await db.auth.admin.deleteUser(userId);
   if (error) throw new HttpError(400, error.message);
   return { ok: true };
 }

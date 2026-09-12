@@ -96,7 +96,7 @@ async function realApi() {
     createClient: (fields) => server("create_client", fields),
     updateClient: (fields) => server("update_client", fields),
     setPassword: (userId, password) => server("set_password", { userId, password }),
-    removeLogin: (userId) => server("remove_login", { userId }),
+    removeLogin: (userId, purge = false) => server("remove_login", { userId, purge }),
   };
 }
 
