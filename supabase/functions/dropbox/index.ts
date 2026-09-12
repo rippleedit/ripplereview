@@ -251,6 +251,53 @@ async function createClientLogin(profile: Profile, body: any) {
   return { ok: true };
 }
 
+// Rename a client, move their Dropbox folder, or change their username.
+// Notes follow: they are keyed by Dropbox file id, which survives a move,
+// and their folder label is rewritten here so access keeps working.
+async function updateClient(profile: Profile, body: any) {
+  requireAdmin(profile);
+  const userId = String(body.userId ?? "");
+  const { data: target } = await db.from("profiles").select("*").eq("id", userId).single();
+  if (!target) throw new HttpError(404, "That login is gone.");
+  if (target.is_admin) throw new HttpError(400, "That's your own studio login.");
+
+  const oldFolder = target.client_folder ?? "";
+  const folder = body.folder === undefined ? oldFolder : cleanFolder(body.folder);
+
+  if (folder.toLowerCase() !== oldFolder.toLowerCase()) {
+    if (oldFolder) {
+      await dropbox("files/move_v2", { from_path: `/${oldFolder}`, to_path: `/${folder}`, autorename: false });
+    } else {
+      try {
+        await dropbox("files/create_folder_v2", { path: `/${folder}`, autorename: false });
+      } catch (error) {
+        if (!(error instanceof HttpError) || !String(error.message).includes("conflict")) throw error;
+      }
+    }
+    // The notes and approvals move with them.
+    await db.from("comments").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
+    await db.from("approvals").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
+  }
+
+  const patch: Record<string, unknown> = { client_folder: folder };
+  if (body.name !== undefined) patch.name = String(body.name ?? "").trim().slice(0, 40);
+
+  if (body.email !== undefined) {
+    const email = String(body.email).trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "That username doesn't work.");
+    if (email !== target.email) {
+      const { error } = await db.auth.admin.updateUserById(userId, { email, email_confirm: true });
+      if (error) throw new HttpError(400, /already|registered|exists/i.test(error.message)
+        ? "Another login already uses that username." : error.message);
+      patch.email = email;
+    }
+  }
+
+  const { error } = await db.from("profiles").update(patch).eq("id", userId);
+  if (error) throw new HttpError(400, error.message);
+  return { ok: true };
+}
+
 async function setPassword(profile: Profile, body: any) {
   requireAdmin(profile);
   const password = String(body.password ?? "");
@@ -289,6 +336,7 @@ Deno.serve(async (req) => {
       case "set_name": return reply(200, await setProfile(profile, body));
       case "clients": return reply(200, await clients(profile));
       case "create_client": return reply(200, await createClientLogin(profile, body));
+      case "update_client": return reply(200, await updateClient(profile, body));
       case "set_password": return reply(200, await setPassword(profile, body));
       case "remove_login": return reply(200, await removeLogin(profile, body));
       default: return reply(400, { error: "Unknown action." });

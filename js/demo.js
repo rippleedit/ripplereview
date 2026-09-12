@@ -157,6 +157,7 @@ export function demoApi() {
       orphans: [],
     }),
     createClient: () => wait({ ok: true }),
+    updateClient: () => wait({ ok: true }),
     setPassword: () => wait({ ok: true }),
     removeLogin: () => wait({ ok: true }),
   };

@@ -512,6 +512,48 @@ async function addClientDialog() {
   await inviteDialog(created.folder, { email: created.email }, created.password);
 }
 
+async function editClientDialog(folder, login) {
+  let fields = null;
+  await dialog({
+    title: `Edit ${folder}`,
+    confirmLabel: "Save changes",
+    body: `
+      <div class="form">
+        <label><span>Client name</span><input name="folder" value="${esc(folder)}" autocomplete="off" required></label>
+        <label><span>Username</span><input name="username" value="${esc(loginName(login.email))}" autocomplete="off" spellcheck="false" required></label>
+      </div>
+      <p class="sheet-note" data-note>${svg("folder")}<span>Renaming also renames their Dropbox folder. Their videos, notes and approvals move with it.</span></p>`,
+    onOpen: (el) => {
+      const form = el.querySelector("form");
+      form.folder.focus();
+      form.addEventListener("submit", async (event) => {
+        if (event.submitter?.value !== "confirm") return;
+        event.preventDefault();
+        const next = { userId: login.id, folder: form.folder.value.trim(), name: form.folder.value.trim(), email: loginId(form.username.value) };
+        if (!next.folder || !form.username.value.trim()) return;
+        const button = event.submitter;
+        button.disabled = true;
+        button.textContent = "Saving…";
+        try {
+          await api.updateClient(next);
+          fields = next;
+          el.close();
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+          button.textContent = "Save changes";
+        }
+      });
+    },
+  });
+  if (!fields) return;
+  clients = null;
+  libraries.clear();
+  await renderClients();
+  await renderSidebar(parseRoute());
+  toast("Client updated");
+}
+
 async function resetPasswordDialog(folder, login) {
   const password = generatePassword();
   const ok = await dialog({
@@ -568,6 +610,7 @@ async function renderClients() {
       <span class="row-detail ${login ? "" : "row-detail--none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
       <span class="row-actions">
         ${login ? `
+          <button class="icon-button" type="button" data-edit="${esc(login.id)}" title="Edit client" aria-label="Edit ${esc(folder)}">${svg("settings")}</button>
           <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
           <button class="icon-button" type="button" data-reset="${esc(login.id)}" title="New password" aria-label="New password for ${esc(folder)}">${svg("key")}</button>
           <button class="icon-button" type="button" data-remove="${esc(login.id)}" title="Remove login" aria-label="Remove login for ${esc(folder)}">${svg("trash")}</button>`
@@ -608,11 +651,15 @@ async function renderClients() {
   const page = view.querySelector(".page");
   page.querySelector("[data-add-client]").addEventListener("click", addClientDialog);
   page.addEventListener("click", async (event) => {
+    const edit = event.target.closest("[data-edit]");
     const invite = event.target.closest("[data-invite]");
     const reset = event.target.closest("[data-reset]");
     const remove = event.target.closest("[data-remove]");
     const addFor = event.target.closest("[data-add-for]");
-    if (invite) {
+    if (edit) {
+      const login = findLogin(edit.dataset.edit);
+      await editClientDialog(login.folder, login);
+    } else if (invite) {
       const login = findLogin(invite.dataset.invite);
       await inviteDialog(login.folder, login, null);
     } else if (reset) {
