@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, dialog, copyField, esc, href, loginId, loginName, parseTitle, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, dialog, copyField, esc, href, loginId, loginName, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -221,6 +221,15 @@ function renderSignIn() {
 
 // A client's space: their projects and videos ----------------------------
 
+// A project's cuts read in a fixed order: the main film, then the offcuts.
+function sortCuts(project) {
+  const title = parseTitle(project.name).title;
+  return [...project.videos].sort((a, b) => {
+    const x = parseVideo(a.title, title), y = parseVideo(b.title, title);
+    return x.rank - y.rank || x.number - y.number || b.modified.localeCompare(a.modified);
+  });
+}
+
 async function renderSpace(folder, only = null) {
   const cached = libraries.get(folder.toLowerCase())?.data;
   view.innerHTML = `
@@ -245,20 +254,24 @@ async function renderSpace(folder, only = null) {
   const videos = projects.flatMap((p) => p.videos);
   const summary = await api.summary(videos.map((v) => v.versions.at(-1).id)).catch(() => ({ comments: [], approvals: [] }));
 
-  const card = (video) => {
+  const card = (video, projectTitle) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
-    const name = parseTitle(video.title);
+    const cut = parseVideo(video.title, projectTitle);
     return `
       <a class="video-card" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
-          <span class="chip chip--version">v${latest.label}</span>
+          <span class="chip chip--version">v${latest.label}${video.versions.length > 1 ? ` of ${video.versions.length}` : ""}</span>
         </div>
         <div class="video-meta">
-          <span class="title-line">${name.code ? `<span class="tag tag--code">${esc(name.code)}</span>` : ""}<h3>${esc(name.title)}</h3></span>
+          <span class="title-line">
+            <h3>${esc(cut.label)}</h3>
+            ${cut.platform ? `<span class="tag tag--platform">${esc(cut.platform)}</span>` : ""}
+          </span>
+          ${cut.extra ? `<p class="video-extra">${esc(cut.extra)}</p>` : ""}
           <p class="video-sub">
             <span class="status status--${status.kind}">${esc(status.text)}</span>
-            <span>${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</span>
+            <span>${relTime(latest.modified)}</span>
           </p>
         </div>
       </a>`;
@@ -274,8 +287,12 @@ async function renderSpace(folder, only = null) {
       </div>
       ${projects.length ? projects.map((project) => `
         <section class="project">
-          ${only ? "" : `<div class="section-label"><a class="section-label-text" href="${href.project(library.client, project.name)}">${esc(parseTitle(project.name).title)}</a><span class="section-label-count">${project.videos.length}</span></div>`}
-          <div class="video-grid">${project.videos.map(card).join("")}</div>
+          ${only ? "" : `<div class="section-label">
+            ${parseTitle(project.name).code ? `<span class="tag tag--code">${esc(parseTitle(project.name).code)}</span>` : ""}
+            <a class="section-label-text section-label-text--title" href="${href.project(library.client, project.name)}">${esc(parseTitle(project.name).title)}</a>
+            <span class="section-label-count">${project.videos.length} ${project.videos.length === 1 ? "video" : "videos"}</span>
+          </div>`}
+          <div class="video-grid">${sortCuts(project).map((video) => card(video, parseTitle(project.name).title)).join("")}</div>
         </section>`).join("") : `
         <div class="empty">
           <p>Nothing here yet.</p>

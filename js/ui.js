@@ -211,3 +211,59 @@ export function loginName(email) {
   const value = String(email ?? "");
   return value.endsWith(`@${CLIENT_DOMAIN}`) ? value.slice(0, -CLIENT_DOMAIN.length - 1) : value;
 }
+
+// Which cut is this? The file name carries a format marker - LF for the long
+// form, SF-01 for the first short, TR for a trailer - and sometimes a platform
+// (YT, IG). Those are what tell two files in one project apart, so they, not
+// the repeated project name, are what a card shows.
+const FORMATS = {
+  lf: { label: "Long form", rank: 0 },
+  film: { label: "Long form", rank: 0 },
+  tr: { label: "Trailer", rank: 1 },
+  trailer: { label: "Trailer", rank: 1 },
+  teaser: { label: "Teaser", rank: 2 },
+  sf: { label: "Short", rank: 3 },
+  short: { label: "Short", rank: 3 },
+  reel: { label: "Reel", rank: 3 },
+  promo: { label: "Promo", rank: 4 },
+  bts: { label: "Behind the scenes", rank: 5 },
+};
+const PLATFORMS = { yt: "YouTube", ig: "Instagram", tt: "TikTok", fb: "Facebook", li: "LinkedIn", x: "X" };
+
+export function parseVideo(raw = "", projectTitle = "") {
+  const base = parseTitle(raw);
+  const rest = [];
+  let format = null;
+  let platform = null;
+
+  // Markers can share a segment ("YT-LF") or stand alone ("SF-01"), so each
+  // underscore group is read piece by piece.
+  for (const part of String(raw).split("_").map((p) => p.trim()).filter(Boolean)) {
+    if (/^preview$/i.test(part)) continue;
+    if (/^([A-Za-z]{2,4})[-_ ]?\d{1,3}$/.test(part) && part.toUpperCase().replace(/[-_ ]/, "-") === base.code) continue;
+
+    const pieces = part.split(/[-–]/).filter(Boolean);
+    for (let i = 0; i < pieces.length; i++) {
+      const key = pieces[i].toLowerCase();
+      if (FORMATS[key] && !format) {
+        const next = pieces[i + 1];
+        const number = /^\d{1,3}$/.test(next ?? "") ? Number(next) : null;
+        if (number !== null) i++;
+        format = { ...FORMATS[key], number };
+      } else if (PLATFORMS[key] && !platform) {
+        platform = PLATFORMS[key];
+      } else {
+        rest.push(pieces[i]);
+      }
+    }
+  }
+
+  const leftover = rest.join(" ").replace(/\s+/g, " ").trim();
+  // The project's own name repeated in the file name adds nothing.
+  const extra = leftover && !projectTitle.toLowerCase().includes(leftover.toLowerCase()) ? leftover : "";
+  const label = format
+    ? `${format.label}${format.number ? ` ${String(format.number).padStart(2, "0")}` : ""}`
+    : (leftover || base.title);
+
+  return { ...base, format, platform, label, extra, rank: format?.rank ?? 6, number: format?.number ?? 0 };
+}

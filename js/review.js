@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, colourFor, dialog, esc, href, parseTitle, relTime, spinner, svg, toast } from "./ui.js";
+import { avatar, colourFor, dialog, esc, href, parseTitle, parseVideo, relTime, spinner, svg, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -40,7 +40,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   }
 
   const projectHref = href.project(library.client, project.name);
-  const name = parseTitle(video.title);
+  const projectName = parseTitle(project.name);
+  const cut = parseVideo(video.title, projectName.title);
   const latest = video.versions.at(-1);
   const state = {
     comments: [],
@@ -61,9 +62,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     <section class="review">
       <div class="review-bar">
         <span class="title-line">
-          ${name.code ? `<span class="tag tag--code">${esc(name.code)}</span>` : ""}
-          <h1 class="review-title">${esc(name.title)}</h1>
-          ${name.preview ? `<span class="tag tag--preview">Preview</span>` : ""}
+          ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
+          <h1 class="review-title">${esc(projectName.title)}</h1>
+          <span class="tag tag--cut">${esc(cut.label)}</span>
+          ${cut.platform ? `<span class="tag tag--platform">${esc(cut.platform)}</span>` : ""}
           ${video.versions.length > 1 ? `
             <nav class="versions" aria-label="Versions">
               ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
@@ -653,8 +655,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     const button = event.target.closest("[data-export]");
     if (!button) return;
     const kind = button.dataset.export;
-    const clean = parseTitle(version.name.replace(/\.[^.]+$/, ""));
-    const name = `${clean.code ? `${clean.code} ` : ""}${clean.title}`.trim();
+    const name = `${cut.code ? `${cut.code} ` : ""}${projectName.title} ${cut.label}`.trim();
     if (!state.comments.length) return toast("No notes to export yet");
     if (kind === "txt") download(`${name} notes.txt`, toText(state.comments, state.fps, name));
     if (kind === "csv") download(`${name} notes.csv`, toCsv(state.comments, state.fps), "text/csv");
