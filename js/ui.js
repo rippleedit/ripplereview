@@ -276,12 +276,13 @@ export function parseVideo(raw = "", projectTitle = "") {
   // Where a cut ends up follows from what it is: long form goes to YouTube,
   // vertical cuts go to all three short-form feeds. A platform written into
   // the name still wins, for the odd one-off.
-  if (!platform && format) {
-    if (format.rank === 0) platform = "YouTube";
-    else if (["Short", "Reel"].includes(format.label)) platform = "Reels · Shorts · TikTok";
+  let platforms = platform ? [platform] : [];
+  if (!platforms.length && format) {
+    if (format.rank === 0) platforms = ["YouTube"];
+    else if (["Short", "Reel"].includes(format.label)) platforms = ["Reels", "Shorts", "TikTok"];
   }
 
-  return { ...base, format, platform, label, extra, rank: format?.rank ?? 6, number: format?.number ?? 0 };
+  return { ...base, format, platform, platforms, label, extra, rank: format?.rank ?? 6, number: format?.number ?? 0 };
 }
 
 // What's new since you last looked. Kept in this browser: the studio and the
