@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, dialog, copyField, esc, href, relTime, skeletons, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, dialog, copyField, esc, href, parseTitle, relTime, skeletons, spinner, svg, titleTag, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -108,7 +108,7 @@ async function renderSidebar(r) {
   const projectLinks = (client) => (library && library.client.toLowerCase() === client.toLowerCase())
     ? `<ul class="side-sub">${library.projects.map((p) => `
         <li><a class="side-sub-item ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
-          ${esc(p.name)}<span>${p.videos.length}</span></a></li>`).join("")}</ul>`
+          ${esc(parseTitle(p.name).title)}<span>${p.videos.length}</span></a></li>`).join("")}</ul>`
     : "";
 
   const body = profile.is_admin
@@ -159,13 +159,13 @@ function renderCrumbs(r) {
 
   if (profile.is_admin) parts.push({ label: "Clients", url: "#/" });
   if (folder) parts.push({ label: library?.client ?? folder, url: href.space(folder) });
-  if (r.name === "project") parts.push({ label: r.project });
+  if (r.name === "project") parts.push({ label: parseTitle(r.project).title });
   if (r.name === "review") {
     const video = library?.projects.flatMap((p) => p.videos.map((v) => ({ ...v, project: p.name })))
       .find((v) => v.versions.some((x) => x.id === r.fileId));
     if (video) {
-      parts.push({ label: video.project, url: href.project(folder, video.project) });
-      parts.push({ label: video.title });
+      parts.push({ label: parseTitle(video.project).title, url: href.project(folder, video.project) });
+      parts.push({ label: parseTitle(video.title).title });
     }
   }
 
@@ -229,7 +229,7 @@ async function renderSpace(folder, only = null) {
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
-        <h1 class="page-title">${esc(only ?? cached?.client ?? folder)}</h1>
+        <h1 class="page-title">${esc(only ? parseTitle(only).title : (cached?.client ?? folder))}</h1>
         ${cached ? "" : spinner("Loading")}
       </div>
       <div class="video-grid">${skeletons(4)}</div>
@@ -251,13 +251,14 @@ async function renderSpace(folder, only = null) {
   const card = (video) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
+    const name = parseTitle(video.title);
     return `
       <a class="video-card" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
         </div>
         <div class="video-meta">
-          <h3>${esc(video.title)}</h3>
+          <span class="title-line">${name.code ? `<span class="tag tag--code">${esc(name.code)}</span>` : ""}<h3>${esc(name.title)}</h3></span>
           <p class="video-sub">
             <span class="status status--${status.kind}">${esc(status.text)}</span>
             <span>${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</span>
@@ -269,14 +270,14 @@ async function renderSpace(folder, only = null) {
   view.innerHTML = `
     <section class="page">
       <div class="page-head">
-        <h1 class="page-title">${esc(only ?? library.client)}</h1>
+        <h1 class="page-title">${esc(only ? parseTitle(only).title : library.client)}</h1>
         <p class="page-sub">${only
           ? `${videos.length} ${videos.length === 1 ? "video" : "videos"}`
           : `${library.projects.length} ${library.projects.length === 1 ? "project" : "projects"} · ${videos.length} ${videos.length === 1 ? "video" : "videos"}`}</p>
       </div>
       ${projects.length ? projects.map((project) => `
         <section class="project">
-          ${only ? "" : `<div class="section-label"><a class="section-label-text" href="${href.project(library.client, project.name)}">${esc(project.name)}</a><span class="section-label-count">${project.videos.length}</span></div>`}
+          ${only ? "" : `<div class="section-label"><a class="section-label-text" href="${href.project(library.client, project.name)}">${esc(parseTitle(project.name).title)}</a><span class="section-label-count">${project.videos.length}</span></div>`}
           <div class="video-grid">${project.videos.map(card).join("")}</div>
         </section>`).join("") : `
         <div class="empty">

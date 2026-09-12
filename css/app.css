@@ -942,3 +942,19 @@ body { overflow: hidden; }
 .note-who { display: flex; align-items: center; gap: 0.5rem; }
 .note-author { color: var(--white-76); font-weight: 600; }
 .note-author--studio { color: var(--signal); }
+
+/* The job code and preview flag lifted out of the file name. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-small);
+  font: 500 0.6875rem / 1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tag--code { border: 1px solid color-mix(in srgb, var(--signal) 55%, transparent); background: rgba(255, 61, 23, 0.12); color: var(--signal); }
+.tag--preview { border: 1px solid var(--white-14); color: var(--white-52); }
+.title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
+.video-meta .title-line { gap: 0.4rem; }

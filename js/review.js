@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, FRAME_RATES, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, dialog, esc, href, relTime, spinner, svg, toast } from "./ui.js";
+import { avatar, dialog, esc, href, parseTitle, relTime, spinner, svg, titleTag, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -40,6 +40,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   }
 
   const projectHref = href.project(library.client, project.name);
+  const name = parseTitle(video.title);
   const latest = video.versions.at(-1);
   const state = {
     comments: [],
@@ -57,7 +58,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   view.innerHTML = `
     <section class="review">
       <div class="review-bar">
-        <h1 class="review-title">${esc(video.title)}</h1>
+        <span class="title-line">
+          ${name.code ? `<span class="tag tag--code">${esc(name.code)}</span>` : ""}
+          <h1 class="review-title">${esc(name.title)}</h1>
+          ${name.preview ? `<span class="tag tag--preview">Preview</span>` : ""}
+        </span>
         ${video.versions.length > 1 ? `
           <nav class="versions" aria-label="Versions">
             ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
@@ -92,7 +97,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
           <div class="review-meta">
             <div>
-              <p class="review-where"><a href="${projectHref}">${esc(project.name)}</a> · ${esc(version.name)}</p>
+              <p class="review-where"><a href="${projectHref}">${esc(parseTitle(project.name).title)}</a> · ${esc(version.name)}</p>
               ${latest.id !== fileId ? `<p class="review-older">This is an older cut. <a class="text-link" href="${href.video(library.client, latest.id)}">Watch v${latest.label}, the latest →</a></p>` : ""}
               <p class="review-keys">Space play · ← → one frame · Shift ← → one second</p>
             </div>
@@ -571,8 +576,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   $("[data-menu]").addEventListener("click", (event) => {
     const button = event.target.closest("[data-export]");
     if (!button) return;
-    const name = version.name.replace(/\.[^.]+$/, "");
     const kind = button.dataset.export;
+    const clean = parseTitle(version.name.replace(/\.[^.]+$/, ""));
+    const name = `${clean.code ? `${clean.code} ` : ""}${clean.title}`.trim();
     if (!state.comments.length) return toast("No notes to export yet");
     if (kind === "txt") download(`${name} notes.txt`, toText(state.comments, state.fps, name));
     if (kind === "csv") download(`${name} notes.csv`, toCsv(state.comments, state.fps), "text/csv");

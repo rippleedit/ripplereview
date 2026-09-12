@@ -157,3 +157,26 @@ export function wireCopy(root) {
     });
   });
 }
+
+// File names follow the studio's convention:
+//   _PREVIEW_NIL-11_Webinar-Funnel-Breakdown_v2
+//   ^ prefix  ^ job  ^ title, dashes for spaces  ^ version (handled in the listing)
+// Anything that doesn't follow it is left alone, so odd names still read fine.
+export function parseTitle(raw = "") {
+  const parts = String(raw).split("_").map((part) => part.trim()).filter(Boolean);
+  let preview = false;
+  let code = null;
+  const rest = [];
+  for (const part of parts) {
+    if (/^preview$/i.test(part) && !preview) { preview = true; continue; }
+    if (!code && /^[A-Za-z]{2,4}-\d{1,3}$/.test(part)) { code = part.toUpperCase(); continue; }
+    rest.push(part);
+  }
+  const title = rest.join(" ").replace(/[-–]+/g, " ").replace(/\s+/g, " ").trim();
+  return { title: title || String(raw), code, preview, raw: String(raw) };
+}
+
+export function titleTag({ code, preview }) {
+  return (code ? `<span class="tag tag--code">${esc(code)}</span>` : "")
+    + (preview ? `<span class="tag tag--preview">Preview</span>` : "");
+}
