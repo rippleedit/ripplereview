@@ -169,14 +169,18 @@ export function wireCopy(root) {
 //   _PREVIEW_NIL-11_Webinar-Funnel-Breakdown_v2
 //   ^ prefix  ^ job  ^ title, dashes for spaces  ^ version (handled in the listing)
 // Anything that doesn't follow it is left alone, so odd names still read fine.
+// Names arrive underscored (_PREVIEW_NIL-11_Webinar-Funnel) or spaced
+// (NIL-11 Webinar Funnel). Both split into the same pieces.
+const pieces = (raw) => String(raw).split(/[_\s]+/).map((part) => part.trim()).filter(Boolean);
+const JOB = /^([A-Za-z]{2,4})[-_ ]?(\d{1,3})$/;
+
 export function parseTitle(raw = "") {
-  const parts = String(raw).split("_").map((part) => part.trim()).filter(Boolean);
   let preview = false;
   let code = null;
   const rest = [];
-  for (const part of parts) {
+  for (const part of pieces(raw)) {
     if (/^preview$/i.test(part) && !preview) { preview = true; continue; }
-    const job = !code && /^([A-Za-z]{2,4})[-_ ]?(\d{1,3})$/.exec(part);
+    const job = !code && JOB.exec(part);
     if (job) { code = `${job[1].toUpperCase()}-${job[2]}`; continue; }
     rest.push(part);
   }
@@ -240,22 +244,23 @@ export function parseVideo(raw = "", projectTitle = "") {
 
   // Markers can share a segment ("YT-LF") or stand alone ("SF-01"), so each
   // underscore group is read piece by piece.
-  for (const part of String(raw).split("_").map((p) => p.trim()).filter(Boolean)) {
+  for (const part of pieces(raw)) {
     if (/^preview$/i.test(part)) continue;
-    if (/^([A-Za-z]{2,4})[-_ ]?\d{1,3}$/.test(part) && part.toUpperCase().replace(/[-_ ]/, "-") === base.code) continue;
+    const job = JOB.exec(part);
+    if (job && `${job[1].toUpperCase()}-${job[2]}` === base.code) continue;
 
-    const pieces = part.split(/[-–]/).filter(Boolean);
-    for (let i = 0; i < pieces.length; i++) {
-      const key = pieces[i].toLowerCase();
+    const words = part.split(/[-–]/).filter(Boolean);
+    for (let i = 0; i < words.length; i++) {
+      const key = words[i].toLowerCase();
       if (FORMATS[key] && !format) {
-        const next = pieces[i + 1];
+        const next = words[i + 1];
         const number = /^\d{1,3}$/.test(next ?? "") ? Number(next) : null;
         if (number !== null) i++;
         format = { ...FORMATS[key], number };
       } else if (PLATFORMS[key] && !platform) {
         platform = PLATFORMS[key];
       } else {
-        rest.push(pieces[i]);
+        rest.push(words[i]);
       }
     }
   }

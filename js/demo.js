@@ -20,7 +20,7 @@ const LIBRARY = {
     client: "Nile Waves",
     projects: [
       {
-        name: "NIL-11_Webinar-Funnel",
+        name: "NIL-11 Webinar Funnel",
         modified: day(0.1),
         videos: [
           { key: "md", title: "_PREVIEW_NIL-11_YT-LF", modified: day(0.1), versions: [
