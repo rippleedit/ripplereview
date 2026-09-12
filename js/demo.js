@@ -6,7 +6,7 @@ const CLIPS = [`${SITE}/main-film.mp4`, `${SITE}/hero-3.mp4`, `${SITE}/backgroun
 
 const PEOPLE = {
   admin: { id: "u-admin", name: "Razz", email: "studio@ripple-edit.com", client_folder: null, is_admin: true },
-  client: { id: "u-client", name: "Nile Waves", email: "client@example.com", client_folder: "Nile Waves", is_admin: false },
+  client: { id: "u-client", name: "Nile Waves", email: "nile-waves@clients.ripple-edit.com", client_folder: "Nile Waves", is_admin: false },
 };
 
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();

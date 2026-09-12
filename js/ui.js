@@ -186,3 +186,28 @@ export function titleTag({ code, preview }) {
   return (code ? `<span class="tag tag--code">${esc(code)}</span>` : "")
     + (preview ? `<span class="tag tag--preview">Preview</span>` : "");
 }
+
+// Logins are usernames, not addresses. Supabase needs an email-shaped
+// identifier, so "Nile Waves" becomes nile-waves@clients.ripple-edit.com
+// behind the scenes; nobody ever types or sees the domain part.
+export const CLIENT_DOMAIN = "clients.ripple-edit.com";
+
+export function slug(name) {
+  return String(name).toLowerCase().normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+// What the person typed → what Supabase signs in. A real address still works.
+export function loginId(input) {
+  const value = String(input).trim();
+  return value.includes("@") ? value.toLowerCase() : `${slug(value)}@${CLIENT_DOMAIN}`;
+}
+
+// The other way, for showing a login back to the studio.
+export function loginName(email) {
+  const value = String(email ?? "");
+  return value.endsWith(`@${CLIENT_DOMAIN}`) ? value.slice(0, -CLIENT_DOMAIN.length - 1) : value;
+}

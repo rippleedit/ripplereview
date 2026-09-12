@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, dialog, copyField, esc, href, parseTitle, relTime, skeletons, spinner, svg, titleTag, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, dialog, copyField, esc, href, loginId, loginName, parseTitle, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -137,7 +137,7 @@ async function renderSidebar(r) {
     <button class="side-foot" type="button" data-profile>
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
       <span class="side-me">
-        <strong>${esc(profile.name || profile.email)}</strong>
+        <strong>${esc(profile.name || loginName(profile.email))}</strong>
         <small>${profile.is_admin ? "Studio" : "Client"}</small>
       </span>
       ${svg("settings", "side-foot-icon")}
@@ -191,7 +191,7 @@ function renderSignIn() {
           <img class="signin-mark" src="assets/ripplereview-mark.png" alt="Review">
         </div>
         <form class="form" data-signin>
-          <label><span>Email</span><input type="email" name="email" autocomplete="email" required ${api.demo ? 'value="studio@ripple-edit.com"' : ""}></label>
+          <label><span>Username</span><input type="text" name="email" autocomplete="username" spellcheck="false" autocapitalize="off" required ${api.demo ? 'value="studio@ripple-edit.com"' : ""}></label>
           <label><span>Password</span><input type="password" name="password" autocomplete="current-password" ${api.demo ? "" : "required"}></label>
           <button class="button button--solid button--block" type="submit">Sign in <span aria-hidden="true">→</span></button>
           <p class="form-status" role="status" data-status></p>
@@ -210,7 +210,7 @@ function renderSignIn() {
     button.disabled = true;
     status.innerHTML = spinner("Signing in");
     try {
-      await api.signIn(form.email.value.trim(), form.password.value);
+      await api.signIn(loginId(form.email.value), form.password.value);
       route();
     } catch (error) {
       status.textContent = error.message;
@@ -339,8 +339,8 @@ async function profileDialog() {
       <div class="sheet-person">
         <span data-avatar-slot>${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md", src: avatarSrc })}</span>
         <div>
-          <strong>${esc(profile.name || profile.email)}</strong>
-          <span>${esc(profile.email)}</span>
+          <strong>${esc(profile.name || loginName(profile.email))}</strong>
+          <span>${esc(loginName(profile.email))}</span>
         </div>
         <span class="sheet-person-actions">
           <button class="text-button" type="button" data-pick>${avatarSrc ? "Change picture" : "Add picture"}</button>
@@ -429,7 +429,7 @@ function inviteText(email, password) {
     `Your RippleReview login`,
     ``,
     appUrl(),
-    `Email: ${email}`,
+    `Username: ${loginName(email)}`,
     ...(password ? [`Password: ${password}`] : []),
   ].join("\n");
 }
@@ -444,7 +444,7 @@ async function inviteDialog(folder, login, password) {
     cancelLabel: password ? "" : "Close",
     body: `
       ${copyField("Message to send", inviteText(email, password), { block: true })}
-      ${copyField("Email", email)}
+      ${copyField("Username", loginName(email))}
       ${password ? copyField("Password", password) : ""}
       <p class="sheet-note">${svg("alert")}<span>${password
         ? "Copy it now. Passwords are stored scrambled, so this one can't be shown again — you'd have to set a new one."
@@ -470,22 +470,26 @@ async function addClientDialog() {
           </span>
         </label>
       </div>
-      <p class="sheet-note" data-note>${svg("folder")}<span>Creates their Dropbox folder if it isn't there yet.</span></p>`,
+      <p class="sheet-note" data-note>${svg("folder")}<span>Creates their Dropbox folder if it isn't there yet.</span></p>
+      <p class="sheet-note" data-username>${svg("user")}<span>Their username is made from the name.</span></p>`,
     onOpen: (el) => {
       const form = el.querySelector("form");
       const note = el.querySelector("[data-note] span");
       el.querySelector("[data-generate]").addEventListener("click", () => { form.password.value = generatePassword(); });
+      const username = el.querySelector("[data-username] span");
       form.folder.addEventListener("input", () => {
         const name = form.folder.value.trim();
         note.textContent = name ? `Uses Dropbox/Apps/RippleReview/${name}, created if it isn't there yet.` : "Creates their Dropbox folder if it isn't there yet.";
+        username.textContent = name ? `They sign in as “${slug(name)}”.` : "Their username is made from the name.";
       });
       form.folder.focus();
       // Keep the dialog open while the login is being created.
       form.addEventListener("submit", async (event) => {
         if (el.returnValue === "cancel" || event.submitter?.value !== "confirm") return;
         event.preventDefault();
-        const fields = { folder: form.folder.value.trim(), name: form.folder.value.trim(), email: form.email.value.trim(), password: form.password.value };
-        if (!fields.folder || !fields.email || fields.password.length < 8) return;
+        const folder = form.folder.value.trim();
+        const fields = { folder, name: folder, email: loginId(folder), password: form.password.value };
+        if (!fields.folder || fields.password.length < 8) return;
         const button = event.submitter;
         button.disabled = true;
         button.textContent = "Creating…";
@@ -515,7 +519,7 @@ async function resetPasswordDialog(folder, login) {
     confirmLabel: "Set new password",
     danger: true,
     body: `
-      <p>${esc(login.email)} gets a new password. Their current one stops working straight away.</p>
+      <p>${esc(loginName(login.email))} gets a new password. Their current one stops working straight away.</p>
       ${copyField("New password", password)}`,
     onOpen: wireCopy,
   });
@@ -532,7 +536,7 @@ async function removeLoginDialog(login) {
     confirmLabel: "Remove login",
     danger: true,
     body: `
-      <p><strong>${esc(login.email)}</strong> won't be able to sign in any more.</p>
+      <p><strong>${esc(loginName(login.email))}</strong> won't be able to sign in any more.</p>
       <p class="sheet-note">${svg("alert")}<span>Their notes stay, and nothing in your Dropbox is touched.</span></p>`,
   });
   if (!ok) return;
@@ -561,7 +565,7 @@ async function renderClients() {
         <strong>${esc(folder)}</strong>
         <span>Apps/RippleReview/${esc(folder)}</span>
       </a>
-      <span class="row-detail ${login ? "" : "row-detail--none"}">${login ? esc(login.email) : "No login yet"}</span>
+      <span class="row-detail ${login ? "" : "row-detail--none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
       <span class="row-actions">
         ${login ? `
           <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
@@ -591,7 +595,7 @@ async function renderClients() {
           <div class="row">
             ${avatar(l.client_folder || l.email, { size: "md" })}
             <span class="row-name"><strong>${esc(l.client_folder || "—")}</strong></span>
-            <span class="row-detail">${esc(l.email)}</span>
+            <span class="row-detail">${esc(loginName(l.email))}</span>
             <span class="row-actions">
               <button class="icon-button" type="button" data-reset="${esc(l.id)}" title="New password">${svg("key")}</button>
               <button class="icon-button" type="button" data-remove="${esc(l.id)}" title="Remove login">${svg("trash")}</button>

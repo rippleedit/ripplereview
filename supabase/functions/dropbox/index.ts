@@ -232,7 +232,7 @@ async function createClientLogin(profile: Profile, body: any) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const name = String(body.name ?? "").trim() || folder;
-  if (!/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "That email doesn't look right.");
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "That name can't be turned into a username.");
   if (password.length < 8) throw new HttpError(400, "Use a password with at least 8 characters.");
 
   try {
@@ -244,7 +244,9 @@ async function createClientLogin(profile: Profile, body: any) {
   const { data, error } = await db.auth.admin.createUser({
     email, password, email_confirm: true, user_metadata: { name },
   });
-  if (error) throw new HttpError(400, error.message);
+  if (error) throw new HttpError(400, /already|registered|exists/i.test(error.message)
+    ? "A login with that name already exists. Pick a different client name."
+    : error.message);
   await db.from("profiles").update({ client_folder: folder, name }).eq("id", data.user.id);
   return { ok: true };
 }
