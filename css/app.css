@@ -286,8 +286,7 @@ body { overflow: hidden; }
 }
 .side-foot:hover { background: var(--white-08); }
 .side-me { display: grid; gap: 0.1rem; min-width: 0; }
-.side-me strong { overflow: hidden; font-size: 0.8125rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.side-me small { font: 500 0.625rem / 1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--white-28); }
+.side-me strong { overflow: hidden; font-size: 0.875rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .side-foot-icon { margin-left: auto; font-size: 1rem; color: var(--white-28); }
 .side-foot:hover .side-foot-icon { color: var(--white-76); }
 .sheet-signout { display: flex; justify-content: flex-start; padding-top: 0.2rem; }

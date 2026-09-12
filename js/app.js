@@ -151,7 +151,6 @@ async function renderSidebar(r) {
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
       <span class="side-me">
         <strong>${esc(profile.name || loginName(profile.email))}</strong>
-        <small>${profile.is_admin ? "Studio" : "Client"}</small>
       </span>
       ${svg("settings", "side-foot-icon")}
     </button>`;
