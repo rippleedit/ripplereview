@@ -101,7 +101,8 @@ export function demoApi() {
       return wait(structuredClone(LIBRARY[key]));
     },
     link: (fileId) => wait(CLIPS[allFiles().find((f) => f.id === fileId)?.clip ?? 0]),
-    thumbs: (paths) => wait(Object.fromEntries(paths.map((p, i) => [p, THUMBS[(p.length + i) % THUMBS.length]]))),
+    // The short gets a vertical still, the rest landscape ones.
+    thumbs: (paths) => wait(Object.fromEntries(paths.map((p, i) => [p, p.includes("ms1") ? "assets/demo/clip-vertical.jpg" : THUMBS[(p.length + i) % THUMBS.length]]))),
 
     summary: (ids) => wait({
       comments: state.comments.filter((c) => ids.includes(c.file_id)),

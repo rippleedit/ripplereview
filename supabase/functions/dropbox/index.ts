@@ -183,7 +183,7 @@ async function thumbs(profile: Profile, paths: unknown) {
   for (let i = 0; i < list.length; i += 25) {
     const batch = list.slice(i, i + 25);
     const data = await dropbox("files/get_thumbnail_batch", {
-      entries: batch.map((path) => ({ path, format: "jpeg", size: "w640h480", mode: "fitone_bestfit" })),
+      entries: batch.map((path) => ({ path, format: "jpeg", size: "w640h480", mode: "bestfit" })),
     }, "content");
     data.entries.forEach((entry: any, j: number) => {
       if (entry[".tag"] === "success") out[batch[j]] = `data:image/jpeg;base64,${entry.thumbnail}`;
