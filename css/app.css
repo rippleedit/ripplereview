@@ -486,25 +486,48 @@ body { overflow: hidden; }
 }
 .video-meta { display: grid; gap: 0.3rem; justify-items: start; }
 .video-meta h3 { font-size: 0.9375rem; font-weight: 600; line-height: 1.25; letter-spacing: -0.02em; }
-.video-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; color: var(--white-28); font-size: 0.75rem; }
+.video-sub { color: var(--white-28); font-size: 0.75rem; }
+.video-meta { gap: 0.4rem; }
+.video-card.is-new .video-thumb { border-color: rgba(255, 61, 23, 0.45); }
 
+/* Status: four states, each its own badge, readable without reading. */
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font: 500 0.6875rem / 1.2 var(--font-mono);
-  letter-spacing: 0.08em;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font: 500 0.6875rem / 1 var(--font-mono);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--white-76);
 }
-.status::before { width: 6px; height: 6px; border-radius: 50%; content: ""; }
-.status--new { color: var(--white); }
-.status--new::before { background: var(--signal); box-shadow: 0 0 0 4px rgba(255, 61, 23, 0.16); }
-.status--notes::before { border: 1px solid var(--white-76); }
-.status--done { color: var(--white-52); }
-.status--done::before { background: var(--white-28); }
-.status--approved { color: var(--white); }
-.status--approved::before { width: auto; height: auto; border-radius: 0; background: none; color: var(--signal); content: "✓"; }
+.status .icon { width: 0.75rem; height: 0.75rem; stroke-width: 2.4; }
+.status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Waiting on the client: the one state that wants attention. */
+.status--new { border-color: rgba(255, 61, 23, 0.45); background: rgba(255, 61, 23, 0.14); color: var(--signal); }
+.status--new i { animation: pulse 1.8s ease-in-out infinite; }
+/* Work waiting on the studio. */
+.status--notes { border-color: var(--white-28); background: var(--white-08); color: var(--white); }
+/* Everything answered, not yet signed off. */
+.status--done { border-color: var(--white-14); color: var(--white-52); }
+/* Signed off. */
+.status--approved { border-color: rgba(62, 207, 166, 0.4); background: rgba(62, 207, 166, 0.12); color: #3ecfa6; }
+
+.chip--new { position: absolute; top: 0.7rem; right: 0.7rem; border-color: var(--signal); background: var(--signal); color: var(--white); }
+.new-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--signal); box-shadow: 0 0 0 3px rgba(255, 61, 23, 0.18); }
+.client-card-name strong .new-dot { display: inline-block; margin-left: 0.4rem; vertical-align: middle; }
+
+/* Sidebar projects: code, name, how many videos. */
+.side-sub-item { display: flex; align-items: center; gap: 0.5rem; }
+.side-sub-name { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.side-sub-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-sub-count { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
+.side-sub-count .icon { width: 0.8rem; height: 0.8rem; }
+.tag--mini { padding: 0.1rem 0.25rem; font-size: 0.625rem; letter-spacing: 0.04em; }
+.side-item .new-dot { margin-left: auto; }
 
 /* Admin: clients ---------------------------------------------------------- */
 

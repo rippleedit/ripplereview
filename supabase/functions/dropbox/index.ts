@@ -281,6 +281,12 @@ async function updateClient(profile: Profile, body: any) {
 
   const patch: Record<string, unknown> = { client_folder: folder };
   if (body.name !== undefined) patch.name = String(body.name ?? "").trim().slice(0, 40);
+  if (body.avatar !== undefined) {
+    const avatar = body.avatar === null ? null : String(body.avatar);
+    if (avatar && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)) throw new HttpError(400, "That picture didn't come through.");
+    if (avatar && avatar.length > 120_000) throw new HttpError(400, "That picture is too big.");
+    patch.avatar = avatar;
+  }
 
   if (body.email !== undefined) {
     const email = String(body.email).trim().toLowerCase();

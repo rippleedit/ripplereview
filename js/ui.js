@@ -29,13 +29,14 @@ export function toast(message) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
-// One status line per video, from its latest version's notes and approval.
+// One status per video, from its latest version's notes and approval. Four
+// states, each with its own colour so a grid reads without being read.
 export function videoStatus(fileId, { comments, approvals }) {
-  if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", text: "Approved" };
+  if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", text: "Approved", icon: "check" };
   const open = comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length;
-  if (open) return { kind: "notes", text: `${open} open ${open === 1 ? "note" : "notes"}` };
+  if (open) return { kind: "notes", text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "reply" };
   const any = comments.some((c) => c.file_id === fileId && !c.parent_id);
-  return any ? { kind: "done", text: "All notes done" } : { kind: "new", text: "Ready for review" };
+  return any ? { kind: "done", text: "Notes done", icon: "check" } : { kind: "new", text: "Ready for review", icon: null };
 }
 
 // Links, in one place: the sidebar, the lists and the review screen agree.
@@ -79,6 +80,7 @@ export const icon = {
   undo: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>',
   reply: '<path d="M9 17l-5-5 5-5"/><path d="M4 12h9a7 7 0 0 1 7 7v1"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
   alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
 
@@ -266,4 +268,21 @@ export function parseVideo(raw = "", projectTitle = "") {
     : (leftover || base.title);
 
   return { ...base, format, platform, label, extra, rank: format?.rank ?? 6, number: format?.number ?? 0 };
+}
+
+// What's new since you last looked. Kept in this browser: the studio and the
+// client each get their own sense of "new", with nothing to store server-side.
+export function lastSeen(key) {
+  try { return localStorage.getItem(`rr-seen:${key.toLowerCase()}`) ?? ""; } catch { return ""; }
+}
+
+export function markSeen(key) {
+  try { localStorage.setItem(`rr-seen:${key.toLowerCase()}`, new Date().toISOString()); } catch {}
+}
+
+// Vertical cuts are shot 9:16. Knowing that from the name means the grid is
+// laid out correctly before a single thumbnail has loaded.
+export function guessRatio(cut) {
+  const vertical = cut.format && ["Short", "Reel"].includes(cut.format.label);
+  return vertical ? "9 / 16" : "16 / 9";
 }

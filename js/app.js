@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, dialog, copyField, esc, href, loginId, loginName, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, dialog, copyField, esc, guessRatio, href, lastSeen, loginId, loginName, markSeen, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -105,17 +105,30 @@ async function renderSidebar(r) {
   const folder = profile.is_admin ? r.folder : profile.client_folder;
   const library = folder ? libraries.get(folder.toLowerCase())?.data : null;
 
-  const projectLinks = (client) => (library && library.client.toLowerCase() === client.toLowerCase())
-    ? `<ul class="side-sub">${library.projects.map((p) => `
-        <li><a class="side-sub-item ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
-          ${esc(parseTitle(p.name).title)}<span>${p.videos.length}</span></a></li>`).join("")}</ul>`
-    : "";
+  const projectLinks = (client) => {
+    if (!library || library.client.toLowerCase() !== client.toLowerCase()) return "";
+    const seen = lastSeen(client);
+    return `<ul class="side-sub">${library.projects.map((p) => {
+      const info = parseTitle(p.name);
+      const fresh = seen && p.modified > seen;
+      return `<li>
+        <a class="side-sub-item ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
+          <span class="side-sub-name">
+            ${info.code ? `<span class="tag tag--code tag--mini">${esc(info.code)}</span>` : ""}
+            <span>${esc(info.title)}</span>
+          </span>
+          <span class="side-sub-count" title="${p.videos.length} ${p.videos.length === 1 ? "video" : "videos"}">${svg("film")}${p.videos.length}</span>
+          ${fresh ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
+        </a></li>`;
+    }).join("")}</ul>`;
+  };
 
   const body = profile.is_admin
     ? `<p class="side-label">Clients</p>
        ${clients ? clients.folders.map((f) => `
           <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">
             ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}<span>${esc(f.folder)}</span>
+            ${f.updated && lastSeen(f.folder) && f.updated > lastSeen(f.folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
           </a>
           ${folder?.toLowerCase() === f.folder.toLowerCase() ? projectLinks(f.folder) : ""}`).join("")
          : `<div class="side-loading">${spinner()}</div>`}`
@@ -254,14 +267,17 @@ async function renderSpace(folder, only = null) {
   const videos = projects.flatMap((p) => p.videos);
   const summary = await api.summary(videos.map((v) => v.versions.at(-1).id)).catch(() => ({ comments: [], approvals: [] }));
 
+  const seen = lastSeen(library.client);
   const card = (video, projectTitle) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
     const cut = parseVideo(video.title, projectTitle);
+    const fresh = seen && latest.modified > seen;
     return `
-      <a class="video-card" href="${href.video(library.client, latest.id)}">
-        <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
-          <span class="chip chip--version">v${latest.label}${video.versions.length > 1 ? ` of ${video.versions.length}` : ""}</span>
+      <a class="video-card ${fresh ? "is-new" : ""}" href="${href.video(library.client, latest.id)}">
+        <div class="video-thumb" style="aspect-ratio:${guessRatio(cut)}" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
+          <span class="chip chip--version">v${latest.label}</span>
+          ${fresh ? `<span class="chip chip--new">New</span>` : ""}
         </div>
         <div class="video-meta">
           <span class="title-line">
@@ -269,10 +285,8 @@ async function renderSpace(folder, only = null) {
             ${cut.platform ? `<span class="tag tag--platform">${esc(cut.platform)}</span>` : ""}
           </span>
           ${cut.extra ? `<p class="video-extra">${esc(cut.extra)}</p>` : ""}
-          <p class="video-sub">
-            <span class="status status--${status.kind}">${esc(status.text)}</span>
-            <span>${relTime(latest.modified)}</span>
-          </p>
+          <span class="status status--${status.kind}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.text)}</span>
+          <p class="video-sub">${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</p>
         </div>
       </a>`;
   };
@@ -303,6 +317,7 @@ async function renderSpace(folder, only = null) {
     </section>`;
 
   fillThumbs([...view.querySelectorAll("[data-thumb]")]);
+  markSeen(library.client);
 }
 
 // Dropbox's own thumbnails first; where it has none, a frame from the video.
@@ -312,7 +327,13 @@ async function fillThumbs(slots) {
   const missing = [];
   for (const slot of slots) {
     const src = thumbs[slot.dataset.thumb];
-    if (src) slot.insertAdjacentHTML("afterbegin", `<img src="${src}" alt="" loading="lazy">`);
+    if (src) {
+      slot.insertAdjacentHTML("afterbegin", `<img src="${src}" alt="" loading="lazy">`);
+      const img = slot.querySelector("img");
+      img.addEventListener("load", () => {
+        if (img.naturalWidth && img.naturalHeight) slot.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+      }, { once: true });
+    }
     else missing.push(slot);
   }
   for (const slot of missing) {
@@ -320,6 +341,10 @@ async function fillThumbs(slots) {
       const url = await api.link(slot.dataset.id);
       if (!slot.isConnected) return;
       slot.insertAdjacentHTML("afterbegin", `<video src="${esc(url)}#t=1" muted playsinline preload="metadata" aria-hidden="true"></video>`);
+      const clip = slot.querySelector("video");
+      clip.addEventListener("loadedmetadata", () => {
+        if (clip.videoWidth && clip.videoHeight) slot.style.aspectRatio = `${clip.videoWidth} / ${clip.videoHeight}`;
+      }, { once: true });
     } catch {}
   }
 }
@@ -535,6 +560,15 @@ async function editClientDialog(folder, login) {
     title: `Edit ${folder}`,
     confirmLabel: "Save changes",
     body: `
+      <div class="sheet-person">
+        <span data-avatar-slot>${avatar(folder, { size: "md", src: login.avatar })}</span>
+        <div><strong>${esc(folder)}</strong><span>${esc(loginName(login.email))}</span></div>
+        <span class="sheet-person-actions">
+          <button class="text-button" type="button" data-pick>${login.avatar ? "Change picture" : "Add picture"}</button>
+          <button class="text-button text-button--danger" type="button" data-drop ${login.avatar ? "" : "hidden"}>Remove</button>
+        </span>
+      </div>
+      <input type="file" accept="image/*" hidden data-file>
       <div class="form">
         <label><span>Client name</span><input name="folder" value="${esc(folder)}" autocomplete="off" required></label>
         <label><span>Username</span><input name="username" value="${esc(loginName(login.email))}" autocomplete="off" spellcheck="false" required></label>
@@ -542,11 +576,35 @@ async function editClientDialog(folder, login) {
       <p class="sheet-note" data-note>${svg("folder")}<span>Renaming also renames their Dropbox folder. Their videos, notes and approvals move with it.</span></p>`,
     onOpen: (el) => {
       const form = el.querySelector("form");
+      const file = el.querySelector("[data-file]");
+      const slot = el.querySelector("[data-avatar-slot]");
+      const drop = el.querySelector("[data-drop]");
+      const pick = el.querySelector("[data-pick]");
+      let picture;                                   // undefined = leave it alone
+
       form.folder.focus();
+      pick.addEventListener("click", () => file.click());
+      file.addEventListener("change", async () => {
+        if (!file.files?.[0]) return;
+        try {
+          picture = await squareDataUrl(file.files[0]);
+          slot.innerHTML = avatar(folder, { size: "md", src: picture });
+          drop.hidden = false;
+          pick.textContent = "Change picture";
+        } catch (error) { toast(error.message); }
+      });
+      drop.addEventListener("click", () => {
+        picture = null;
+        slot.innerHTML = avatar(folder, { size: "md" });
+        drop.hidden = true;
+        pick.textContent = "Add picture";
+      });
+
       form.addEventListener("submit", async (event) => {
         if (event.submitter?.value !== "confirm") return;
         event.preventDefault();
         const next = { userId: login.id, folder: form.folder.value.trim(), name: form.folder.value.trim(), email: loginId(form.username.value) };
+        if (picture !== undefined) next.avatar = picture;
         if (!next.folder || !form.username.value.trim()) return;
         const button = event.submitter;
         button.disabled = true;
@@ -613,6 +671,14 @@ async function removeLoginDialog(login) {
   } catch (error) { toast(error.message); }
 }
 
+// Has anything in this client's space changed since the studio last opened it?
+function updated(folder) {
+  const seen = lastSeen(folder);
+  const library = libraries.get(folder.toLowerCase())?.data;
+  if (!seen || !library) return false;
+  return library.projects.some((p) => p.modified > seen);
+}
+
 async function renderClients() {
   view.innerHTML = `<section class="page"><div class="page-head"><h1 class="page-title">Clients</h1>${spinner("Loading")}</div></section>`;
   let data;
@@ -627,7 +693,7 @@ async function renderClients() {
       <a class="client-card-main" href="${href.space(folder)}">
         ${avatar(folder, { size: "md", src: login?.avatar })}
         <span class="client-card-name">
-          <strong>${esc(folder)}</strong>
+          <strong>${esc(folder)}${updated(folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}</strong>
           <span class="${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
         </span>
       </a>
