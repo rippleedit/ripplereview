@@ -124,8 +124,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             <div class="composer-top">
               <button type="button" class="tc-chip" data-when title="Click for a general note without timecode"></button>
               <button type="button" class="pin-toggle" data-pin-toggle>${ICON.pin}<span>Mark a spot</span></button>
-              <button type="button" class="pin-toggle" data-draw-toggle>${ICON.draw}<span>Draw</span></button>
-              <button type="button" class="pin-toggle pin-toggle--quiet" data-draw-undo hidden>${ICON.undo}<span>Undo</span></button>
+              <button type="button" class="pin-toggle" data-draw-toggle>${svg("draw")}<span>Draw</span></button>
+              <button type="button" class="pin-toggle pin-toggle--quiet" data-draw-undo hidden>${svg("undo")}<span>Undo</span></button>
             </div>
             <textarea name="body" rows="3" placeholder="Pause anywhere and write your note…" data-body></textarea>
             <div class="composer-foot">
