@@ -134,7 +134,9 @@ async function renderSidebar(r) {
             </a>
             ${active ? `<div class="side-group side-group--nested">${projectRows(f.folder) || `<p class="side-empty">No projects yet</p>`}</div>` : ""}`;
         }).join("") : `<div class="side-loading">${spinner()}</div>`}`
-    : `<p class="side-kicker">${svg("folder")}<span>Projects</span></p>
+    : `<a class="side-link side-link--client ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">
+         ${svg("folder")}<span class="side-link-name">All projects</span>
+       </a>
        <div class="side-group">${projectRows(profile.client_folder) || `<p class="side-empty">Nothing here yet</p>`}</div>`;
 
   sidebar.innerHTML = `

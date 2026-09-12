@@ -34,7 +34,7 @@ export function toast(message) {
 export function videoStatus(fileId, { comments, approvals }) {
   if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", text: "Approved", icon: "check" };
   const open = comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length;
-  if (open) return { kind: "notes", text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "reply" };
+  if (open) return { kind: "notes", text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "message" };
   const any = comments.some((c) => c.file_id === fileId && !c.parent_id);
   return any ? { kind: "done", text: "Notes done", icon: "check" } : { kind: "new", text: "Ready for review", icon: null };
 }
@@ -78,6 +78,7 @@ export const icon = {
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   draw: '<path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/><path d="M5 21h14"/>',
   undo: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>',
+  message: '<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>',
   reply: '<path d="M9 17l-5-5 5-5"/><path d="M4 12h9a7 7 0 0 1 7 7v1"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
