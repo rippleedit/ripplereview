@@ -115,7 +115,7 @@ async function renderSidebar(r) {
     ? `<p class="side-label">Clients</p>
        ${clients ? clients.folders.map((f) => `
           <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">
-            ${avatar(f.folder)}<span>${esc(f.folder)}</span>
+            ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}<span>${esc(f.folder)}</span>
           </a>
           ${folder?.toLowerCase() === f.folder.toLowerCase() ? projectLinks(f.folder) : ""}`).join("")
          : `<div class="side-loading">${spinner()}</div>`}`
@@ -135,7 +135,7 @@ async function renderSidebar(r) {
         <a class="side-item side-item--tool ${r.name === "home" ? "is-active" : ""}" href="#/">${svg("users")}<span>Manage logins</span></a>
       </div>` : ""}
     <button class="side-foot" type="button" data-profile>
-      ${avatar(profile.name || profile.email, { studio: profile.is_admin })}
+      ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}
       <span class="side-me">
         <strong>${esc(profile.name || profile.email)}</strong>
         <small>${profile.is_admin ? "Studio" : "Client"}</small>
@@ -309,26 +309,77 @@ async function fillThumbs(slots) {
 
 // Me -------------------------------------------------------------------
 
+// Shrink whatever the user picked to a small square, so a picture costs a
+// few kilobytes instead of several megabytes.
+function squareDataUrl(file, size = 128) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const side = Math.min(image.width, image.height);
+      const canvas = Object.assign(document.createElement("canvas"), { width: size, height: size });
+      canvas.getContext("2d").drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(image.src);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    image.onerror = () => reject(new Error("That file isn't an image we can read."));
+    image.src = URL.createObjectURL(file);
+  });
+}
+
 async function profileDialog() {
   let name = profile.name;
+  let avatarSrc = profile.avatar ?? null;
+  let touchedPicture = false;
+
   const save = await dialog({
     title: "You",
-    confirmLabel: "Save name",
+    confirmLabel: "Save",
     cancelLabel: "Close",
     body: `
       <div class="sheet-person">
-        ${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md" })}
-        <div><strong>${esc(profile.name || profile.email)}</strong><span>${esc(profile.email)}</span></div>
+        <span data-avatar-slot>${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md", src: avatarSrc })}</span>
+        <div>
+          <strong>${esc(profile.name || profile.email)}</strong>
+          <span>${esc(profile.email)}</span>
+        </div>
+        <span class="sheet-person-actions">
+          <button class="text-button" type="button" data-pick>${avatarSrc ? "Change picture" : "Add picture"}</button>
+          <button class="text-button text-button--danger" type="button" data-drop ${avatarSrc ? "" : "hidden"}>Remove</button>
+        </span>
       </div>
+      <input type="file" accept="image/*" hidden data-file>
       <div class="form">
         <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
       </div>
-      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees next to your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
+      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees on your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
       <div class="sheet-signout"><button class="text-button" type="button" data-sign-out>Sign out</button></div>`,
     onOpen: (el) => {
       const input = el.querySelector("input[name=name]");
+      const file = el.querySelector("[data-file]");
+      const slot = el.querySelector("[data-avatar-slot]");
+      const drop = el.querySelector("[data-drop]");
+      const pick = el.querySelector("[data-pick]");
+
       input.addEventListener("input", () => { name = input.value.trim(); });
       input.focus();
+      pick.addEventListener("click", () => file.click());
+      file.addEventListener("change", async () => {
+        if (!file.files?.[0]) return;
+        try {
+          avatarSrc = await squareDataUrl(file.files[0]);
+          touchedPicture = true;
+          slot.innerHTML = avatar(name || profile.email, { studio: profile.is_admin, size: "md", src: avatarSrc });
+          drop.hidden = false;
+          pick.textContent = "Change picture";
+        } catch (error) { toast(error.message); }
+      });
+      drop.addEventListener("click", () => {
+        avatarSrc = null;
+        touchedPicture = true;
+        slot.innerHTML = avatar(name || profile.email, { studio: profile.is_admin, size: "md" });
+        drop.hidden = true;
+        pick.textContent = "Add picture";
+      });
       el.querySelector("[data-sign-out]").addEventListener("click", async () => {
         el.close();
         await api.signOut();
@@ -339,11 +390,16 @@ async function profileDialog() {
       });
     },
   });
-  if (!save || name === profile.name) return;
+
+  if (!save) return;
+  const fields = {};
+  if (name !== profile.name) fields.name = name;
+  if (touchedPicture) fields.avatar = avatarSrc;
+  if (!Object.keys(fields).length) return;
   try {
-    profile = await api.setName(name);
+    profile = await api.setProfile(fields);
     await renderSidebar(parseRoute());
-    toast("Name saved");
+    toast("Saved");
   } catch (error) { toast(error.message); }
 }
 
@@ -500,7 +556,7 @@ async function renderClients() {
 
   const row = (folder, login) => `
     <div class="row" data-folder="${esc(folder)}">
-      ${avatar(folder, { size: "md" })}
+      ${avatar(folder, { size: "md", src: login?.avatar })}
       <a class="row-name" href="${href.space(folder)}">
         <strong>${esc(folder)}</strong>
         <span>Apps/RippleReview/${esc(folder)}</span>

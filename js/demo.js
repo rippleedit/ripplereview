@@ -141,10 +141,13 @@ export function demoApi() {
       save();
     },
 
-    async setName(name) {
-      me = { ...me, name };
+    async setProfile(fields) {
+      me = { ...me, ...fields };
+      PEOPLE[me.is_admin ? "admin" : "client"] = me;
       return wait(me);
     },
+
+    people: () => wait(Object.values(PEOPLE)),
 
     clients: () => wait({
       folders: [

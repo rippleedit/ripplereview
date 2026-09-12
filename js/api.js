@@ -30,7 +30,10 @@ async function realApi() {
     async session() {
       const { data } = await sb.auth.getSession();
       if (!data.session) return null;
-      profile ??= check(await sb.from("profiles").select("*").eq("id", data.session.user.id).single());
+      if (!profile) {
+        const row = check(await sb.from("profiles").select("id, name, avatar, is_admin, client_folder").eq("id", data.session.user.id).single());
+        profile = { ...row, email: data.session.user.email ?? "" };
+      }
       return profile;
     },
     async signIn(email, password) {
@@ -78,9 +81,15 @@ async function realApi() {
       check(await sb.from("approvals").delete().eq("file_id", fileId));
     },
 
-    async setName(name) {
-      profile = (await server("set_name", { name })).profile;
+    async setProfile(fields) {
+      const row = (await server("set_profile", fields)).profile;
+      profile = { ...row, email: profile?.email ?? "" };
       return profile;
+    },
+
+    // Everyone sharing a space: used for the faces beside notes.
+    async people(folder) {
+      return check(await sb.from("profiles").select("id, name, avatar, is_admin, client_folder"));
     },
 
     clients: () => server("clients"),

@@ -99,9 +99,10 @@ export function initials(name = "") {
 }
 
 // size: "sm" in note lists, "md" in the clients list.
-export function avatar(name, { studio = false, size = "sm" } = {}) {
+export function avatar(name, { studio = false, size = "sm", src = null } = {}) {
   const colour = studio ? "var(--signal)" : colourFor(name);
-  return `<span class="avatar avatar--${size}" style="--tint:${colour}" aria-hidden="true">${esc(initials(name))}</span>`;
+  const inside = src ? `<img src="${esc(src)}" alt="">` : esc(initials(name));
+  return `<span class="avatar avatar--${size} ${src ? "avatar--photo" : ""}" style="--tint:${colour}" aria-hidden="true">${inside}</span>`;
 }
 
 // Dialogs: ours, not the browser's. Resolve to true (confirmed) or false.

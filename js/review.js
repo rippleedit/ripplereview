@@ -44,6 +44,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const latest = video.versions.at(-1);
   const state = {
     comments: [],
+    people: new Map(),          // who is in this space, for names and faces
     approval: null,
     fps: readFps(fileId) ?? 25,
     fpsChosen: readFps(fileId) != null,
@@ -455,7 +456,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
   const authorLabel = (c) => `
     <span class="note-who">
-      ${avatar(c.author_name, { studio: c.author_is_admin })}
+      ${avatar(c.author_name, { studio: c.author_is_admin, src: state.people.get(c.author_id)?.avatar })}
       <span class="note-author ${c.author_is_admin ? "note-author--studio" : ""}">${esc(c.author_name || "Someone")}</span>
     </span>`;
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
@@ -655,7 +656,14 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   renderApproval();
   loadSource();
   try {
-    [state.comments, state.approval] = await Promise.all([api.comments(fileId), api.approval(fileId)]);
+    const [comments, approval, people] = await Promise.all([
+      api.comments(fileId),
+      api.approval(fileId),
+      api.people(library.client).catch(() => []),
+    ]);
+    state.comments = comments;
+    state.approval = approval;
+    state.people = new Map(people.map((person) => [person.id, person]));
   } catch (error) {
     toast(error.message);
   }

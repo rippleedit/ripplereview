@@ -13,6 +13,7 @@ create table public.profiles (
   email text not null default '',
   name text not null default '',
   client_folder text,                -- the client's Dropbox folder; null for the admin
+  avatar text,                       -- a small square picture, stored inline as a data URL
   is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -139,9 +140,12 @@ alter table public.comments enable row level security;
 alter table public.approvals enable row level security;
 
 -- Profiles are read-only from the app. Logins are managed by the admin page,
--- which goes through the server function with full rights.
-create policy "read own profile, admin reads all" on public.profiles
-  for select to authenticated using (id = auth.uid() or public.is_admin());
+-- which goes through the server function with full rights. Everyone in a space
+-- can see the names and pictures of the people they share it with; the column
+-- grant below keeps email addresses out of it.
+create policy "read people in my space" on public.profiles
+  for select to authenticated
+  using (id = auth.uid() or is_admin or lower(client_folder) = public.my_folder());
 
 create policy "read notes in my space" on public.comments
   for select to authenticated using (public.can_see(client_folder));
@@ -165,7 +169,7 @@ create policy "withdraw approval in my space" on public.approvals
 
 -- Explicit table rights, so this works whether or not the project exposes new
 -- tables automatically. Row level security above still decides which rows.
-grant select on public.profiles to authenticated;
+grant select (id, name, avatar, is_admin, client_folder) on public.profiles to authenticated;
 grant select, insert, delete on public.comments to authenticated;
 grant select, insert, delete on public.approvals to authenticated;
 grant all on public.profiles, public.comments, public.approvals to service_role;

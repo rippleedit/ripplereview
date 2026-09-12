@@ -192,10 +192,18 @@ async function thumbs(profile: Profile, paths: unknown) {
   return { thumbs: out };
 }
 
-// Anyone may set the name shown on their own notes.
-async function setName(profile: Profile, body: any) {
-  const name = String(body.name ?? "").trim().slice(0, 40);
-  const { data, error } = await db.from("profiles").update({ name }).eq("id", profile.id).select().single();
+// Anyone may set their own display name and picture. The picture arrives as a
+// small square data URL (the browser shrinks it first), or null to remove it.
+async function setProfile(profile: Profile, body: any) {
+  const patch: Record<string, unknown> = {};
+  if (body.name !== undefined) patch.name = String(body.name ?? "").trim().slice(0, 40);
+  if (body.avatar !== undefined) {
+    const avatar = body.avatar === null ? null : String(body.avatar);
+    if (avatar && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)) throw new HttpError(400, "That picture didn't come through.");
+    if (avatar && avatar.length > 120_000) throw new HttpError(400, "That picture is too big.");
+    patch.avatar = avatar;
+  }
+  const { data, error } = await db.from("profiles").update(patch).eq("id", profile.id).select().single();
   if (error) throw new HttpError(400, error.message);
   return { profile: data };
 }
@@ -204,7 +212,7 @@ async function clients(profile: Profile) {
   requireAdmin(profile);
   const [entries, { data: logins }] = await Promise.all([
     listAll("", false),
-    db.from("profiles").select("id, email, name, client_folder, is_admin, created_at").order("created_at"),
+    db.from("profiles").select("id, email, name, avatar, client_folder, is_admin, created_at").order("created_at"),
   ]);
   const folders = entries
     .filter((e: any) => e[".tag"] === "folder")
@@ -275,7 +283,8 @@ Deno.serve(async (req) => {
       case "library": return reply(200, await library(profile, body.folder));
       case "link": return reply(200, await link(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
-      case "set_name": return reply(200, await setName(profile, body));
+      case "set_profile":
+      case "set_name": return reply(200, await setProfile(profile, body));
       case "clients": return reply(200, await clients(profile));
       case "create_client": return reply(200, await createClientLogin(profile, body));
       case "set_password": return reply(200, await setPassword(profile, body));
