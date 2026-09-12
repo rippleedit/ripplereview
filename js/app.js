@@ -419,7 +419,9 @@ async function fillThumbs(slots) {
       const img = slot.querySelector(".thumb-shot");
       img.addEventListener("load", () => {
         // The file's real shape wins over the guess from its name.
-        if (img.naturalWidth && img.naturalHeight) slot.closest(".video-card").style.setProperty("--ar", img.naturalWidth / img.naturalHeight);
+        // Home's blocks are a fixed height, so only the library's cards reshape.
+        const card = slot.closest(".video-card");
+        if (card && img.naturalWidth && img.naturalHeight) card.style.setProperty("--ar", img.naturalWidth / img.naturalHeight);
       }, { once: true });
     }
     else missing.push(slot);
@@ -431,7 +433,8 @@ async function fillThumbs(slots) {
       slot.insertAdjacentHTML("afterbegin", `<video class="thumb-shot" src="${esc(url)}#t=1" muted playsinline preload="metadata" aria-hidden="true"></video>`);
       const clip = slot.querySelector("video");
       clip.addEventListener("loadedmetadata", () => {
-        if (clip.videoWidth && clip.videoHeight) slot.closest(".video-card").style.setProperty("--ar", clip.videoWidth / clip.videoHeight);
+        const card = slot.closest(".video-card");
+        if (card && clip.videoWidth && clip.videoHeight) card.style.setProperty("--ar", clip.videoWidth / clip.videoHeight);
       }, { once: true });
     } catch {}
   }
