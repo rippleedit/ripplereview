@@ -154,6 +154,8 @@ async function renderSidebar(r) {
     ${profile.is_admin ? `
       <div class="side-tools">
         <a class="side-link side-link--tool ${r.name === "logins" ? "is-active" : ""}" href="#/clients">${svg("users")}<span class="side-link-name">Manage logins</span></a>
+        <span class="side-link side-link--soon" title="Create and organise projects from here - coming">${svg("layers")}<span class="side-link-name">Projects</span><span class="side-soon">Soon</span></span>
+        <span class="side-link side-link--soon" title="Editors with their own logins and assigned projects - coming">${svg("users")}<span class="side-link-name">Team</span><span class="side-soon">Soon</span></span>
       </div>` : ""}
     <button class="side-foot" type="button" data-profile>
       ${avatar(profile.name || profile.email, { studio: profile.is_admin, src: profile.avatar })}

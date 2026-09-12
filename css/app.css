@@ -288,6 +288,11 @@ body { overflow: hidden; }
 
 .side-tools { flex: none; padding: 0.55rem; border-top: 1px solid var(--white-08); }
 .side-link--tool { color: var(--white-52); }
+/* Planned, not built: visible so the shape of the app is clear. */
+.side-link--soon { color: var(--white-28); cursor: default; }
+.side-link--soon:hover { background: none; color: var(--white-28); }
+.side-link--soon .icon { color: var(--white-14); }
+.side-soon { font: 500 0.5625rem / 1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--white-14); }
 
 .side-foot {
   display: flex;
