@@ -544,10 +544,7 @@ body { overflow: hidden; }
 .video-thumb { transition: height 320ms var(--ease-out), width 320ms var(--ease-out), border-color 300ms ease, box-shadow 420ms var(--ease-out), transform 420ms var(--ease-out); }
 .video-card { transition: width 320ms var(--ease-out); }
 @keyframes fade-in { from { opacity: 0; } }
-.video-thumb .chip--version { position: absolute; top: 0.6rem; left: 0.6rem; border-color: var(--signal); background: var(--signal); color: var(--white); }
-/* Where this cut is headed, along the bottom of the frame. */
-.thumb-tags { position: absolute; right: 0.6rem; bottom: 0.6rem; left: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
-.chip--where { padding: 0.22rem 0.4rem; border-color: rgba(242, 240, 234, 0.18); background: rgba(5, 5, 5, 0.66); font-size: 0.625rem; letter-spacing: 0.04em; color: var(--white-76); backdrop-filter: blur(6px); }
+.video-thumb .chip { position: absolute; top: 0.7rem; left: 0.7rem; }
 .video-card:hover .video-thumb {
   transform: translateY(-3px);
   border-color: var(--white-28);
@@ -1134,7 +1131,6 @@ body { overflow: hidden; }
 }
 .tag--code { border: 1px solid color-mix(in srgb, var(--signal) 55%, transparent); background: rgba(255, 61, 23, 0.12); color: var(--signal); }
 .tag--preview { border: 1px solid var(--white-14); color: var(--white-52); }
-.tag--platform { border: 1px solid var(--white-14); color: var(--white-52); font-size: 0.625rem; letter-spacing: 0.04em; white-space: nowrap; }
 .tag--cut { background: var(--white-14); color: var(--white); letter-spacing: 0.08em; }
 .video-extra { color: var(--white-52); font-size: var(--fs-small); }
 .section-label-text--title { color: var(--white); font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; text-transform: none; }

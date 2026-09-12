@@ -65,7 +65,6 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
           <h1 class="review-title">${esc(projectName.title)}</h1>
           <span class="tag tag--cut">${esc(cut.label)}</span>
-          ${cut.platforms.map((name) => `<span class="tag tag--platform">${esc(name)}</span>`).join("")}
           ${video.versions.length > 1 ? `
             <nav class="versions" aria-label="Versions">
               ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}

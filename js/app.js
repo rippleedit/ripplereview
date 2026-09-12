@@ -281,7 +281,6 @@ async function renderSpace(folder, only = null) {
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
           ${fresh ? `<span class="chip chip--new">New</span>` : ""}
-          ${cut.platforms.length ? `<span class="thumb-tags">${cut.platforms.map((name) => `<span class="chip chip--where">${esc(name)}</span>`).join("")}</span>` : ""}
         </div>
         <div class="video-meta">
           <span class="title-line">
