@@ -440,13 +440,11 @@ body { overflow: hidden; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  padding-bottom: 2.2rem;
-  margin-bottom: 2.2rem;
-  border-bottom: 1px solid var(--white-08);
+  gap: 0.75rem;
+  margin-bottom: 2.8rem;
 }
-.signin-logo { width: 124px; height: auto; }
-.signin-mark { height: 14px; width: auto; }
+.signin-logo { width: 156px; height: auto; }
+.signin-mark { height: 17px; width: auto; }
 
 .signin .form { gap: 1.6rem; }
 .signin .form input { font-size: 0.9375rem; }
@@ -455,7 +453,6 @@ body { overflow: hidden; }
 .signin .form-status { display: flex; justify-content: center; }
 
 .button--block { width: 100%; margin-top: 0.9rem; }
-.button--block:hover { transform: none; }
 
 /* A client space ---------------------------------------------------------- */
 
