@@ -14,6 +14,7 @@ create table public.profiles (
   name text not null default '',
   client_folder text,                -- the client's Dropbox folder; null for the admin
   avatar text,                       -- a small square picture, stored inline as a data URL
+  last_seen timestamptz,             -- touched by the app itself, for presence
   is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -182,3 +183,5 @@ revoke all on public.profiles, public.comments, public.approvals from anon;
 -- Keep-awake ping (see .github/workflows/keep-awake.yml). Returns 1, reads nothing.
 create or replace function public.ping() returns int language sql as 'select 1';
 grant execute on function public.ping() to anon;
+
+-- Later additions live in the numbered update files next to this one.

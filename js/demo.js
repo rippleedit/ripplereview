@@ -150,10 +150,25 @@ export function demoApi() {
 
     people: () => wait(Object.values(PEOPLE)),
 
+    statuses: () => wait(state.statuses ?? []),
+    async setFinished(folder, project, finished) {
+      state.statuses = [...(state.statuses ?? []).filter((row) => row.project !== project), { client_folder: folder.toLowerCase(), project, finished }];
+      save();
+      return wait(state.statuses.at(-1));
+    },
+    async notesSubmitted(fileId) {
+      const row = { id: crypto.randomUUID(), file_id: fileId, client_folder: me.client_folder?.toLowerCase() ?? "", by_name: me.name, note_count: state.comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length, created_at: new Date().toISOString() };
+      state.submissions = [row, ...(state.submissions ?? [])];
+      save();
+      return wait({ submission: row, emailed: false });
+    },
+    submissions: (ids) => wait((state.submissions ?? []).filter((row) => ids.includes(row.file_id))),
+    touch: async () => {},
+
     clients: () => wait({
       folders: [
         { folder: "Kxng Beats", logins: [] },
-        { folder: "Nile Waves", logins: [{ id: "u-client", email: PEOPLE.client.email, name: "Nile Waves", client_folder: "Nile Waves" }] },
+        { folder: "Nile Waves", logins: [{ id: "u-client", email: PEOPLE.client.email, name: "Nile Waves", client_folder: "Nile Waves", last_seen: new Date(Date.now() - 90000).toISOString() }] },
       ],
       orphans: [],
     }),

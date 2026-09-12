@@ -275,21 +275,31 @@ async function renderSpace(folder, only = null) {
 
   const projects = only ? library.projects.filter((p) => p.name === only) : library.projects;
   const videos = projects.flatMap((p) => p.videos);
-  const summary = await api.summary(videos.map((v) => v.versions.at(-1).id)).catch(() => ({ comments: [], approvals: [] }));
+  const latestIds = videos.map((v) => v.versions.at(-1).id);
+  const [summary, submissions] = await Promise.all([
+    api.summary(latestIds).catch(() => ({ comments: [], approvals: [] })),
+    api.submissions(latestIds).catch(() => []),
+  ]);
+  const handedOver = new Map(submissions.map((row) => [row.file_id, row]));
 
   const seen = lastSeen(library.client);
   const card = (video, projectTitle, index = 0) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
     const cut = parseVideo(video.title, projectTitle);
-    const fresh = seen && latest.modified > seen;
+    // New to the studio means "the client finished reviewing since you last
+    // looked"; new to the client means "a cut arrived since you last looked".
+    const handed = handedOver.get(latest.id);
+    const fresh = profile.is_admin
+      ? Boolean(handed && seen && handed.created_at > seen)
+      : Boolean(seen && latest.modified > seen);
     return `
       <a class="video-card ${fresh ? "is-new" : ""}" style="--ar:${guessRatio(cut)};--i:${index}" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="thumb-left">
             <span class="chip chip--version">v${latest.label}</span>
             <span class="status status--${status.kind}" title="${esc(status.text)}">${status.icon ? svg(status.icon) : `<i></i>`}${esc(status.short)}</span>
-            ${fresh ? `<span class="chip chip--new">New</span>` : ""}
+            ${fresh ? `<span class="chip chip--new">${profile.is_admin ? "Notes in" : "New"}</span>` : ""}
           </span>
         </div>
         <div class="video-meta">
@@ -302,7 +312,12 @@ async function renderSpace(folder, only = null) {
       </a>`;
   };
 
-  const ordered = only ? projects : [...projects].sort(byJobNumber);
+  const statuses = profile.is_admin || true ? await api.statuses(library.client).catch(() => []) : [];
+  const finishedSet = new Set(statuses.filter((row) => row.finished).map((row) => row.project));
+  // Finished work sinks to the bottom; live jobs stay on top, newest first.
+  const ordered = only
+    ? projects
+    : [...projects].sort((a, b) => (finishedSet.has(a.name) - finishedSet.has(b.name)) || byJobNumber(a, b));
   const face = profile.is_admin
     ? (clients?.folders.find((f) => f.folder.toLowerCase() === library.client.toLowerCase())?.logins.find((l) => l.avatar)?.avatar)
     : profile.avatar;
@@ -320,16 +335,25 @@ async function renderSpace(folder, only = null) {
       </div>
       ${ordered.length ? ordered.map((project, index) => {
         const info = parseTitle(project.name);
-        const open = only || index === 0;          // the newest job is the one you came for
+        const finished = finishedSet.has(project.name);
+        const open = only || (index === 0 && !finished);   // the live job you came for
         return `
-        <section class="project ${open ? "is-open" : ""}" data-project="${esc(project.name)}">
+        <section class="project ${open ? "is-open" : ""} ${finished ? "is-finished" : ""}" data-project="${esc(project.name)}">
           ${only ? "" : `
-            <button class="project-head" type="button" data-toggle aria-expanded="${open}">
-              <span class="project-chevron" aria-hidden="true">${svg("chevron")}</span>
-              ${info.code ? `<span class="tag tag--code">${esc(info.code)}</span>` : ""}
-              <span class="project-name">${esc(info.title)}</span>
-              <span class="project-count">${svg("film")}${project.videos.length}</span>
-            </button>`}
+            <div class="project-head-row">
+              <button class="project-head" type="button" data-toggle aria-expanded="${open}">
+                <span class="project-chevron" aria-hidden="true">${svg("chevron")}</span>
+                ${info.code ? `<span class="tag ${finished ? "tag--quiet" : "tag--code"}">${esc(info.code)}</span>` : ""}
+                <span class="project-name">${esc(info.title)}</span>
+                ${finished ? `<span class="tag tag--quiet tag--mini">Finished</span>` : ""}
+                <span class="project-count">${svg("film")}${project.videos.length}</span>
+              </button>
+              ${profile.is_admin ? `
+                <button class="icon-button project-finish" type="button" data-finish="${esc(project.name)}" data-finished="${finished}"
+                  title="${finished ? "Reopen this project" : "Mark this project finished"}" aria-label="${finished ? "Reopen this project" : "Mark this project finished"}">
+                  ${svg(finished ? "undo" : "check")}
+                </button>` : ""}
+            </div>`}
           <div class="project-body"><div class="video-grid">${sortCuts(project).map((video, i) => card(video, info.title, i)).join("")}</div></div>
         </section>`;
       }).join("") : `
@@ -340,6 +364,22 @@ async function renderSpace(folder, only = null) {
             : "We'll let you know when your first cut is ready."}</p>
         </div>`}
     </section>`;
+
+  view.querySelectorAll("[data-finish]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const project = button.dataset.finish;
+      const finished = button.dataset.finished !== "true";
+      button.disabled = true;
+      try {
+        await api.setFinished(library.client, project, finished);
+        await renderSpace(folder, only);
+        toast(finished ? "Marked finished" : "Reopened");
+      } catch (error) {
+        toast(error.message);
+        button.disabled = false;
+      }
+    });
+  });
 
   // One project open at a time.
   view.querySelectorAll("[data-toggle]").forEach((button) => {
@@ -726,6 +766,16 @@ async function removeLoginDialog(login) {
   } catch (error) { toast(error.message); }
 }
 
+// Online now, or when they were last here. Studio-side only: nothing about
+// this is shown to the client about themselves or anyone else.
+function presenceLine(login) {
+  if (!login.last_seen) return `<span class="presence presence--never">Never signed in</span>`;
+  const minutes = (Date.now() - new Date(login.last_seen).getTime()) / 60000;
+  return minutes < 3
+    ? `<span class="presence presence--on"><i></i>Online now</span>`
+    : `<span class="presence">Last seen ${esc(relTime(login.last_seen))}</span>`;
+}
+
 // Has anything in this client's space changed since the studio last opened it?
 function updated(folder) {
   const seen = lastSeen(folder);
@@ -750,6 +800,7 @@ async function renderClients() {
         <span class="client-card-name">
           <strong>${esc(folder)}${updated(folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}</strong>
           <span class="${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
+          ${login ? presenceLine(login) : ""}
         </span>
       </a>
       <div class="client-card-tools">
@@ -821,5 +872,14 @@ async function renderClients() {
   });
 }
 
+// Presence: the app touches its own timestamp while it is open. Only the
+// studio ever sees these; nothing is shown on the client's side.
+function keepPresence() {
+  const beat = () => { if (!document.hidden && profile) api.touch().catch(() => {}); };
+  beat();
+  setInterval(beat, 60000);
+  document.addEventListener("visibilitychange", beat);
+}
+
 window.addEventListener("hashchange", route);
-route();
+route().then(keepPresence);

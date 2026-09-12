@@ -6,6 +6,8 @@
 // Secrets it needs (Supabase → Edge Functions → Secrets):
 //   DROPBOX_APP_KEY        the App key from the Dropbox App Console
 //   DROPBOX_REFRESH_TOKEN  printed by setup/dropbox-token.mjs
+//   RESEND_API_KEY         for the "client finished reviewing" email
+//   NOTIFY_TO              where that email goes (default info@ripple-edit.com)
 // SUPABASE_URL and the service key are provided by Supabase automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -208,11 +210,55 @@ async function setProfile(profile: Profile, body: any) {
   return { profile: data };
 }
 
+// A client presses "send my notes". We record it, so the studio sees it in
+// the app, and send one email, so they see it without opening the app.
+async function notesSubmitted(profile: Profile, body: any) {
+  if (profile.is_admin) throw new HttpError(400, "That button is for clients.");
+  const folder = profile.client_folder ?? "";
+  if (!folder) throw new HttpError(403, "No client space is linked to this login yet.");
+
+  const fileId = String(body.fileId ?? "");
+  const meta = await dropbox("files/get_metadata", { path: fileId });
+  if (!allowed(profile, meta.path_lower)) throw new HttpError(403, "Not your file.");
+
+  const { count } = await db.from("comments")
+    .select("id", { count: "exact", head: true })
+    .eq("file_id", fileId).is("parent_id", null).eq("done", false);
+
+  const who = profile.name || folder;
+  const { data: row, error } = await db.from("submissions")
+    .insert({ file_id: fileId, client_folder: folder.toLowerCase(), by_name: who, note_count: count ?? 0 })
+    .select().single();
+  if (error) throw new HttpError(400, error.message);
+
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (key) {
+    const app = Deno.env.get("APP_URL") ?? "https://review.ripple-edit.com";
+    const link = `${app}/#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(fileId)}`;
+    const notes = count === 1 ? "1 open note" : `${count ?? 0} open notes`;
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: Deno.env.get("NOTIFY_FROM") ?? "RippleReview <onboarding@resend.dev>",
+        to: Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
+        subject: `${who} finished reviewing ${meta.name}`,
+        html: `<p><strong>${who}</strong> has finished reviewing <strong>${meta.name}</strong>.</p>
+               <p>${notes}.</p>
+               <p><a href="${link}">Open it in RippleReview</a></p>`,
+      }),
+    });
+    // A refused email must not lose the submission: it is already recorded.
+    if (!res.ok) console.error("resend:", res.status, (await res.text()).slice(0, 200));
+  }
+  return { submission: row, emailed: Boolean(key) };
+}
+
 async function clients(profile: Profile) {
   requireAdmin(profile);
   const [entries, { data: logins }] = await Promise.all([
     listAll("", false),
-    db.from("profiles").select("id, email, name, avatar, client_folder, is_admin, created_at").order("created_at"),
+    db.from("profiles").select("id, email, name, avatar, client_folder, is_admin, last_seen, created_at").order("created_at"),
   ]);
   const folders = entries
     .filter((e: any) => e[".tag"] === "folder")
@@ -350,6 +396,7 @@ Deno.serve(async (req) => {
       case "library": return reply(200, await library(profile, body.folder));
       case "link": return reply(200, await link(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
+      case "notes_submitted": return reply(200, await notesSubmitted(profile, body));
       case "set_profile":
       case "set_name": return reply(200, await setProfile(profile, body));
       case "clients": return reply(200, await clients(profile));

@@ -47,6 +47,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     comments: [],
     people: new Map(),          // who is in this space, for names and faces
     approval: null,
+    submission: null,          // the last time the client handed their notes over
     fps: readFps(fileId) ?? 25,
     filter: "all",
     activeId: null,
@@ -71,6 +72,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             </nav>` : ""}
         </span>
         <div class="approval" data-approval></div>
+        <div class="handover" data-handover></div>
       </div>
 
       <div class="review-layout">
@@ -685,6 +687,47 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     }
   }
 
+  // "I'm done" - the client tells the studio the review is finished, which
+  // sends one email and leaves a mark in the app.
+  function renderHandover() {
+    const box = $("[data-handover]");
+    if (!box) return;
+    const when = state.submission ? relTime(state.submission.created_at) : null;
+    if (profile.is_admin) {
+      box.innerHTML = when
+        ? `<span class="handed" title="${esc(new Date(state.submission.created_at).toLocaleString())}">${svg("send")} Notes sent ${esc(when)}</span>`
+        : "";
+      return;
+    }
+    box.innerHTML = when
+      ? `<span class="handed">${svg("check")} Sent ${esc(when)}</span>
+         <button type="button" class="text-button text-button--small" data-send>Send again</button>`
+      : `<button type="button" class="button button--compact" data-send>${svg("send")} I'm done reviewing</button>`;
+  }
+
+  $("[data-handover]").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-send]");
+    if (!button) return;
+    const open = state.comments.filter((c) => !c.parent_id && !c.done).length;
+    const ok = await dialog({
+      title: "Send your notes to RippleEdit?",
+      confirmLabel: "Send notes",
+      body: `<p>${open ? `They'll be told you've finished this review, with your ${open === 1 ? "note" : `${open} notes`}.` : "They'll be told you've finished this review."}</p>
+             <p class="sheet-note">${svg("alert")}<span>You can keep adding notes afterwards and send again.</span></p>`,
+    });
+    if (!ok) return;
+    button.disabled = true;
+    try {
+      const result = await api.notesSubmitted(fileId);
+      state.submission = result.submission;
+      renderHandover();
+      toast("Sent to RippleEdit");
+    } catch (error) {
+      toast(error.message);
+      button.disabled = false;
+    }
+  });
+
   $("[data-approval]").addEventListener("click", async (event) => {
     try {
       if (event.target.closest("[data-approve]")) {
@@ -739,21 +782,25 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
   renderWhen();
   renderApproval();
+  renderHandover();
   loadSource();
   try {
-    const [comments, approval, people] = await Promise.all([
+    const [comments, approval, people, submissions] = await Promise.all([
       api.comments(fileId),
       api.approval(fileId),
       api.people(library.client).catch(() => []),
+      api.submissions([fileId]).catch(() => []),
     ]);
     state.comments = comments;
     state.approval = approval;
     state.people = new Map(people.map((person) => [person.id, person]));
+    state.submission = submissions[0] ?? null;
   } catch (error) {
     toast(error.message);
   }
   renderAll();
   renderApproval();
+  renderHandover();
 
   return () => {
     document.removeEventListener("keydown", onKey);

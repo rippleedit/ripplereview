@@ -1184,3 +1184,24 @@ body { overflow: hidden; }
 .button--wide { width: 100%; justify-content: flex-start; gap: 0.6rem; color: var(--white-76); }
 .button--wide:hover { transform: none; color: var(--white); }
 .button--wide .icon { font-size: 1rem; }
+
+/* Handing a review over, and the trace it leaves. */
+.handover { display: flex; align-items: center; gap: 0.6rem; }
+.handed { display: inline-flex; align-items: center; gap: 0.45rem; font-size: var(--fs-small); color: var(--white-52); }
+.handed .icon { width: 0.9rem; height: 0.9rem; color: var(--white-28); }
+.review-bar .handover .button .icon { font-size: 0.9rem; }
+
+/* Finished projects sit quietly at the bottom of the list. */
+.project-head-row { display: flex; align-items: center; gap: 0.4rem; }
+.project-head-row .project-head { flex: 1; }
+.project-finish { flex: none; opacity: 0; transition: opacity 160ms ease, color 160ms ease; }
+.project-head-row:hover .project-finish, .project-finish:focus-visible { opacity: 1; }
+.project.is-finished .project-name { color: var(--white-52); }
+.project.is-finished .project-head { opacity: 0.75; }
+.project.is-finished .project-finish { opacity: 1; }
+
+/* Presence, studio side only. */
+.presence { display: inline-flex; align-items: center; gap: 0.35rem; font: 400 0.6875rem / 1.4 var(--font-mono); color: var(--white-28); }
+.presence--on { color: #56dcb4; }
+.presence--on i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(62, 207, 166, 0.18); }
+.presence--never { color: var(--white-28); }

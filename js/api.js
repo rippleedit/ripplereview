@@ -89,7 +89,31 @@ async function realApi() {
 
     // Everyone sharing a space: used for the faces beside notes.
     async people(folder) {
-      return check(await sb.from("profiles").select("id, name, avatar, is_admin, client_folder"));
+      return check(await sb.from("profiles").select("id, name, avatar, is_admin, client_folder, last_seen"));
+    },
+
+    // Project status: the studio marks a project finished.
+    async statuses(folder) {
+      return check(await sb.from("project_status").select("*").eq("client_folder", folder.toLowerCase()));
+    },
+    async setFinished(folder, project, finished) {
+      return check(await sb.from("project_status")
+        .upsert({ client_folder: folder.toLowerCase(), project, finished, updated_at: new Date().toISOString() })
+        .select().single());
+    },
+
+    // "Done reviewing", and the trail it leaves.
+    notesSubmitted: (fileId) => server("notes_submitted", { fileId }),
+    async submissions(fileIds) {
+      if (!fileIds.length) return [];
+      return check(await sb.from("submissions").select("*").in("file_id", fileIds).order("created_at", { ascending: false }));
+    },
+
+    // Presence: this login says it is here; only the studio ever reads it.
+    async touch() {
+      const { data } = await sb.auth.getSession();
+      if (!data.session) return;
+      await sb.from("profiles").update({ last_seen: new Date().toISOString() }).eq("id", data.session.user.id);
     },
 
     clients: () => server("clients"),
