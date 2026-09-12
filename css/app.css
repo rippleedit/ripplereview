@@ -680,6 +680,11 @@ body { overflow: hidden; }
    controls stay on screen. Vertical cuts get a narrow stage, not bars. */
 .player-shell { transition: opacity 240ms ease; }
 .player-shell {
+  /* The frame hugs the picture: a vertical cut gets a narrow player, not a
+     wide black box with the video floating in the middle of it. */
+  --max-h: calc(100svh - var(--bar-h) - 13rem);
+  width: min(100%, max(280px, calc(var(--max-h) * var(--ratio, 1.7778))));
+  margin-inline: auto;
   overflow: hidden;
   border: 1px solid var(--white-14);
   border-radius: var(--radius-media);
@@ -688,10 +693,10 @@ body { overflow: hidden; }
 }
 
 .player {
-  --max-h: calc(100svh - var(--bar-h) - 13rem);
   position: relative;
-  width: min(100%, calc(var(--max-h) * var(--ratio, 1.7778)));
+  width: 100%;
   aspect-ratio: var(--ratio, 16 / 9);
+  max-height: var(--max-h);
   margin: 0 auto;
   cursor: pointer;
 }
@@ -809,6 +814,14 @@ body { overflow: hidden; }
   cursor: pointer;
 }
 .fps select option { background: var(--panel); }
+
+/* A narrow player (a vertical cut) puts its scrub bar on its own row and
+   drops the total running time, which the bar already implies. */
+.player-shell.is-narrow .controls { flex-wrap: wrap; row-gap: 0.3rem; padding: 0.6rem 0.7rem; }
+.player-shell.is-narrow .scrub { order: 10; flex-basis: 100%; height: 24px; }
+.player-shell.is-narrow .tc { font-size: 0.75rem; }
+.player-shell.is-narrow .tc--dim { display: none; }
+.player-shell.is-narrow [data-mute] { margin-left: auto; }
 
 /* Full screen: the stage fills the screen above its controls. */
 .player-shell:fullscreen { display: flex; flex-direction: column; border: 0; border-radius: 0; }
@@ -1025,7 +1038,7 @@ body { overflow: hidden; }
   .review-layout { grid-template-columns: 1fr; }
   .notes { position: static; max-height: none; }
   .note-list { max-height: none; }
-  .player { --max-h: 70svh; }
+  .player-shell { --max-h: 70svh; }
 }
 
 @media (max-width: 760px) {

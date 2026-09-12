@@ -148,6 +148,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const composer = $("[data-composer]");
   const body = $("[data-body]");
   const playerState = $("[data-player-state]");
+  const shell = $("[data-player-shell]");
+
+  // Under about 420px the controls need two rows, whatever the window size.
+  new ResizeObserver(([entry]) => shell.classList.toggle("is-narrow", entry.contentRect.width < 420)).observe(shell);
 
   // Player ----------------------------------------------------------------
 
@@ -167,7 +171,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     playerState.hidden = true;
     player.classList.add("is-ready");
     const ratio = videoEl.videoWidth && videoEl.videoHeight ? videoEl.videoWidth / videoEl.videoHeight : 16 / 9;
-    player.style.setProperty("--ratio", ratio);
+    // The whole frame follows the picture's shape, not just the video inside it.
+    shell.style.setProperty("--ratio", ratio);
     $("[data-duration]").textContent = timecode(videoEl.duration, state.fps);
     fitLayer();
     renderMarks();
@@ -265,7 +270,6 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     $("[data-mute]").innerHTML = videoEl.muted ? ICON.muted : ICON.sound;
   });
   $("[data-full]").addEventListener("click", () => {
-    const shell = $("[data-player-shell]");
     if (document.fullscreenElement) document.exitFullscreen();
     else if (shell.requestFullscreen) shell.requestFullscreen();
     else videoEl.webkitEnterFullscreen?.(); // iPhone
