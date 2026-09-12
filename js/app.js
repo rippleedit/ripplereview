@@ -144,7 +144,7 @@ async function renderSidebar(r) {
     <a class="side-brand" href="#/">
       <img class="side-brand-logo" src="assets/logotype.png" width="104" height="24" alt="RippleEdit">
       <span class="side-brand-dot" aria-hidden="true"></span>
-      <img class="side-brand-mark" src="assets/ripplereview-mark.png?v=2" alt="Review">
+      <img class="side-brand-mark" src="assets/ripplereview-mark.png?v=3" alt="Review">
     </a>
     <nav class="side-nav">${body}</nav>
     ${profile.is_admin ? `
@@ -210,7 +210,7 @@ function renderSignIn() {
         <div class="signin-brand">
           <img class="signin-logo" src="assets/logotype.png" width="132" height="30" alt="RippleEdit">
           <span class="side-brand-dot" aria-hidden="true"></span>
-          <img class="signin-mark" src="assets/ripplereview-mark.png?v=2" alt="Review">
+          <img class="signin-mark" src="assets/ripplereview-mark.png?v=3" alt="Review">
         </div>
         <form class="form" data-signin>
           <label><span>Username</span><input type="text" name="email" autocomplete="username" spellcheck="false" autocapitalize="off" required ${api.demo ? 'value="studio@ripple-edit.com"' : ""}></label>
