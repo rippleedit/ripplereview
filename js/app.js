@@ -176,8 +176,10 @@ function renderCrumbs(r) {
     const video = library?.projects.flatMap((p) => p.videos.map((v) => ({ ...v, project: p.name })))
       .find((v) => v.versions.some((x) => x.id === r.fileId));
     if (video) {
-      parts.push({ label: parseTitle(video.project).title, url: href.project(folder, video.project) });
-      parts.push({ label: parseTitle(video.title).title });
+      const projectTitle = parseTitle(video.project).title;
+      parts.push({ label: projectTitle, url: href.project(folder, video.project) });
+      // The last crumb says which cut you're watching: Long form, Short 01.
+      parts.push({ label: parseVideo(video.title, projectTitle).label });
     }
   }
 
