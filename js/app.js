@@ -183,27 +183,24 @@ function renderSignIn() {
   shell.hidden = true;
   auth.hidden = false;
   auth.innerHTML = `
-    <section class="signin">
+    <div class="signin">
       <div class="signin-card">
-        <img class="signin-logo" src="assets/logotype.png" width="150" height="34" alt="RippleEdit">
-        <p class="kicker"><span class="live-dot" aria-hidden="true"></span> Client review</p>
-        <h1 class="signin-title">Your edits,<br>ready for notes.</h1>
-        <form class="form" data-signin>
+        <div class="signin-brand">
+          <img class="signin-logo" src="assets/logotype.png" width="132" height="30" alt="RippleEdit">
+          <span class="side-brand-dot" aria-hidden="true"></span>
+          <img class="signin-mark" src="assets/ripplereview-mark.png" alt="Review">
+        </div>
+        <form class="form form--boxed" data-signin>
           <label><span>Email</span><input type="email" name="email" autocomplete="email" required ${api.demo ? 'value="studio@ripple-edit.com"' : ""}></label>
           <label><span>Password</span><input type="password" name="password" autocomplete="current-password" ${api.demo ? "" : "required"}></label>
-          <div class="form-submit-row">
-            <button class="button button--solid" type="submit">Sign in <span aria-hidden="true">→</span></button>
-            <p class="form-status" role="status" data-status></p>
-          </div>
-          <p class="form-note">${api.demo
-            ? "Demo mode: sign in with any email. Use one containing “client” to see the client's view."
-            : "Lost your login? Message RippleEdit and we'll send you a new one."}</p>
+          <button class="button button--solid button--block" type="submit">Sign in</button>
+          <p class="form-status" role="status" data-status></p>
         </form>
       </div>
-      <div class="signin-media" aria-hidden="true">
-        <video src="https://ripple-edit.com/assets/main-film-mobile.mp4" poster="https://ripple-edit.com/assets/main-film-poster.jpg" muted autoplay loop playsinline></video>
-      </div>
-    </section>`;
+      <p class="signin-foot">${api.demo
+        ? "Demo mode · any email signs in. Use one containing “client” for the client's view."
+        : "Lost your login? Message RippleEdit and we'll send you a new one."}</p>
+    </div>`;
 
   const form = auth.querySelector("[data-signin]");
   form.addEventListener("submit", async (event) => {
@@ -323,7 +320,7 @@ async function profileDialog() {
         ${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md" })}
         <div><strong>${esc(profile.name || profile.email)}</strong><span>${esc(profile.email)}</span></div>
       </div>
-      <div class="form">
+      <div class="form form--boxed">
         <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
       </div>
       <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees next to your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
@@ -396,7 +393,7 @@ async function addClientDialog() {
     title: "Add a client",
     confirmLabel: "Create login",
     body: `
-      <div class="form">
+      <div class="form form--boxed">
         <label><span>Client name</span><input name="folder" placeholder="e.g. Nordbeats" autocomplete="off" required></label>
         <label><span>Email</span><input name="email" type="email" autocomplete="off" required></label>
         <label><span>Password</span>
