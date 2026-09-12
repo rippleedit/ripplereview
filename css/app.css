@@ -337,7 +337,11 @@ body { overflow: hidden; }
 .icon-button svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button.is-spinning svg { animation: spin 700ms linear infinite; }
 
-#main { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+#main { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; scroll-behavior: smooth; }
+
+/* Every screen arrives the same way: a short rise, no flash. */
+.page, .review { animation: page-in 300ms var(--ease-out); }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
 
 .sidebar-scrim { display: none; }
 
@@ -475,8 +479,25 @@ body { overflow: hidden; }
 .project-chevron { display: inline-flex; color: var(--white-52); transition: transform 240ms var(--ease-out); }
 .project-chevron .icon { width: 1rem; height: 1rem; }
 .project.is-open .project-chevron { transform: rotate(180deg); }
-.project .video-grid { display: none; }
-.project.is-open .video-grid { display: flex; padding: 1.1rem 0 1.6rem; animation: fade-in 240ms ease; }
+/* Folding: the row height is animated, not switched, so opening one project
+   and closing another reads as a single movement. */
+.project-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 420ms var(--ease-out), opacity 260ms ease;
+  opacity: 0;
+}
+.project-body > .video-grid { overflow: hidden; min-height: 0; padding: 0; }
+.project.is-open .project-body { grid-template-rows: 1fr; opacity: 1; }
+.project.is-open .project-body > .video-grid { padding: 1.1rem 0 1.6rem; }
+
+/* Cards arrive in sequence rather than all at once. */
+.video-card {
+  animation: card-in 420ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes card-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes note-in { from { opacity: 0; transform: translateY(6px); } }
 
 .page-head { align-items: center; }
 .page-face { display: inline-flex; }
@@ -511,7 +532,9 @@ body { overflow: hidden; }
   background: radial-gradient(80% 80% at 50% 50%, rgba(255, 61, 23, 0.1), transparent), var(--panel);
   transition: transform 420ms var(--ease-out), border-color 300ms ease, box-shadow 420ms var(--ease-out);
 }
-.video-thumb img, .video-thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: fade-in 500ms ease; }
+.video-thumb img, .video-thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: fade-in 420ms ease; }
+.video-thumb { transition: height 320ms var(--ease-out), width 320ms var(--ease-out), border-color 300ms ease, box-shadow 420ms var(--ease-out), transform 420ms var(--ease-out); }
+.video-card { transition: width 320ms var(--ease-out); }
 @keyframes fade-in { from { opacity: 0; } }
 .video-thumb .chip { position: absolute; top: 0.7rem; left: 0.7rem; }
 .video-card:hover .video-thumb {
@@ -613,6 +636,7 @@ body { overflow: hidden; }
 .review-where a:hover { color: var(--white); }
 
 .versions { display: flex; gap: 0.35rem; padding: 0.25rem; border: 1px solid var(--white-14); border-radius: var(--radius-control); }
+.versions a { transition: color 200ms ease, background-color 240ms var(--ease-out); }
 .versions a {
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-control);
@@ -633,6 +657,7 @@ body { overflow: hidden; }
 
 /* The player: a black stage that takes the video's own shape, capped so the
    controls stay on screen. Vertical cuts get a narrow stage, not bars. */
+.player-shell { transition: opacity 240ms ease; }
 .player-shell {
   overflow: hidden;
   border: 1px solid var(--white-14);
@@ -649,7 +674,11 @@ body { overflow: hidden; }
   margin: 0 auto;
   cursor: pointer;
 }
-.player video { width: 100%; height: 100%; object-fit: contain; }
+.player video { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 320ms ease; }
+.player.is-ready video { opacity: 1; }
+/* The stage resizes into the video's shape instead of jumping to it. */
+.player { transition: width 360ms var(--ease-out), aspect-ratio 360ms var(--ease-out); }
+.player-state { transition: opacity 240ms ease; }
 .player.is-pinning { cursor: crosshair; }
 .player-layer { position: absolute; pointer-events: none; }
 

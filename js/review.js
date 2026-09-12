@@ -154,6 +154,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
   let reloadedLink = false;
   async function loadSource(resumeAt = 0) {
+    player.classList.remove("is-ready");
+    playerState.hidden = false;
     try {
       videoEl.src = await api.link(fileId);
       if (resumeAt) videoEl.addEventListener("loadedmetadata", () => { videoEl.currentTime = resumeAt; }, { once: true });
@@ -164,6 +166,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
   videoEl.addEventListener("loadedmetadata", () => {
     playerState.hidden = true;
+    player.classList.add("is-ready");
     const ratio = videoEl.videoWidth && videoEl.videoHeight ? videoEl.videoWidth / videoEl.videoHeight : 16 / 9;
     player.style.setProperty("--ratio", ratio);
     $("[data-duration]").textContent = timecode(videoEl.duration, state.fps);

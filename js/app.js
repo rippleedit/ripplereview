@@ -268,13 +268,13 @@ async function renderSpace(folder, only = null) {
   const summary = await api.summary(videos.map((v) => v.versions.at(-1).id)).catch(() => ({ comments: [], approvals: [] }));
 
   const seen = lastSeen(library.client);
-  const card = (video, projectTitle) => {
+  const card = (video, projectTitle, index = 0) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
     const cut = parseVideo(video.title, projectTitle);
     const fresh = seen && latest.modified > seen;
     return `
-      <a class="video-card ${fresh ? "is-new" : ""}" style="--ar:${guessRatio(cut)}" href="${href.video(library.client, latest.id)}">
+      <a class="video-card ${fresh ? "is-new" : ""}" style="--ar:${guessRatio(cut)};--i:${index}" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
           ${fresh ? `<span class="chip chip--new">New</span>` : ""}
@@ -317,7 +317,7 @@ async function renderSpace(folder, only = null) {
               <span class="project-name">${esc(info.title)}</span>
               <span class="project-count">${svg("film")}${project.videos.length}</span>
             </button>`}
-          <div class="video-grid">${sortCuts(project).map((video) => card(video, info.title)).join("")}</div>
+          <div class="project-body"><div class="video-grid">${sortCuts(project).map((video, i) => card(video, info.title, i)).join("")}</div></div>
         </section>`;
       }).join("") : `
         <div class="empty">
