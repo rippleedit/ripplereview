@@ -7,8 +7,8 @@
 //   DROPBOX_APP_KEY        the App key from the Dropbox App Console
 //   DROPBOX_REFRESH_TOKEN  printed by setup/dropbox-token.mjs
 //   RESEND_API_KEY         for the "client finished reviewing" email
-//   NOTIFY_TO              where that email goes (default info@ripple-edit.com)
-// Optional: NOTIFY_FROM, NOTIFY_REPLY_TO, APP_URL.
+//   NOTIFY_TO              where those emails go (default info@ripple-edit.com)
+// Optional: NOTIFY_FROM, NOTIFY_REPLY_TO, NOTIFY_APPROVALS_TO, APP_URL.
 // SUPABASE_URL and the service key are provided by Supabase automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -214,6 +214,59 @@ async function setProfile(profile: Profile, body: any) {
   return { profile: data };
 }
 
+async function sendMail(subject: string, html: string, to?: string) {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) return false;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: Deno.env.get("NOTIFY_FROM") ?? "RippleReview <no-reply@send.ripple-edit.com>",
+      to: to ?? Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
+      // Nothing listens on the sending subdomain, so replies go to the studio.
+      reply_to: Deno.env.get("NOTIFY_REPLY_TO") ?? Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) console.error("resend:", res.status, (await res.text()).slice(0, 200));
+  return res.ok;
+}
+
+// A client approves a version, or takes that approval back. Nothing to record
+// here - the approvals table already holds it - so this only sends the notice.
+async function approvalChanged(profile: Profile, body: any) {
+  if (profile.is_admin) return { emailed: false };      // the studio's own doing
+  const folder = profile.client_folder ?? "";
+  if (!folder) throw new HttpError(403, "No client space is linked to this login yet.");
+
+  const fileId = String(body.fileId ?? "");
+  const meta = await dropbox("files/get_metadata", { path: fileId });
+  if (!allowed(profile, meta.path_lower)) throw new HttpError(403, "Not your file.");
+
+  const who = escapeHtml(profile.name || folder);
+  const what = escapeHtml(String(body.title ?? "").trim().slice(0, 120) || meta.name);
+  const plain = String(body.title ?? "").trim().slice(0, 120) || meta.name;
+  const app = Deno.env.get("APP_URL") ?? "https://review.ripple-edit.com";
+  const link = `${app}/#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(fileId)}`;
+  const approved = Boolean(body.approved);
+
+  const emailed = await sendMail(
+    approved ? `${profile.name || folder} approved ${plain}` : `${profile.name || folder} withdrew approval for ${plain}`,
+    approved
+      ? `<p><strong>${who}</strong> approved <strong>${what}</strong>.</p>
+         <p>That version is signed off.</p>
+         <p><a href="${link}">Open it in RippleReview</a></p>
+         <p style="color:#888;font-size:12px">${escapeHtml(meta.name)}</p>`
+      : `<p><strong>${who}</strong> took back their approval of <strong>${what}</strong>.</p>
+         <p>It's waiting for review again.</p>
+         <p><a href="${link}">Open it in RippleReview</a></p>
+         <p style="color:#888;font-size:12px">${escapeHtml(meta.name)}</p>`,
+    Deno.env.get("NOTIFY_APPROVALS_TO"),
+  );
+  return { emailed };
+}
+
 // A client presses "send my notes". We record it, so the studio sees it in
 // the app, and send one email, so they see it without opening the app.
 async function notesSubmitted(profile: Profile, body: any) {
@@ -235,34 +288,23 @@ async function notesSubmitted(profile: Profile, body: any) {
     .select().single();
   if (error) throw new HttpError(400, error.message);
 
-  const key = Deno.env.get("RESEND_API_KEY");
-  if (key) {
-    const app = Deno.env.get("APP_URL") ?? "https://review.ripple-edit.com";
-    const link = `${app}/#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(fileId)}`;
-    const notes = count === 1 ? "1 open note" : `${count ?? 0} open notes`;
-    // The app sends the readable title ("Webinar Funnel - Long form v3");
-    // the file name is only the fallback.
-    const what = escapeHtml(String(body.title ?? "").trim().slice(0, 120) || meta.name);
-    const whoSafe = escapeHtml(who);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: Deno.env.get("NOTIFY_FROM") ?? "RippleReview <no-reply@send.ripple-edit.com>",
-        to: Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
-        // Nothing listens on the sending subdomain, so replies go to the studio.
-        reply_to: Deno.env.get("NOTIFY_REPLY_TO") ?? Deno.env.get("NOTIFY_TO") ?? "info@ripple-edit.com",
-        subject: `${who} finished reviewing ${String(body.title ?? "").trim().slice(0, 120) || meta.name}`,
-        html: `<p><strong>${whoSafe}</strong> has finished reviewing <strong>${what}</strong>.</p>
-               <p>${notes} waiting for you.</p>
-               <p><a href="${link}">Open it in RippleReview</a></p>
-               <p style="color:#888;font-size:12px">${escapeHtml(meta.name)}</p>`,
-      }),
-    });
-    // A refused email must not lose the submission: it is already recorded.
-    if (!res.ok) console.error("resend:", res.status, (await res.text()).slice(0, 200));
-  }
-  return { submission: row, emailed: Boolean(key) };
+  const app = Deno.env.get("APP_URL") ?? "https://review.ripple-edit.com";
+  const link = `${app}/#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(fileId)}`;
+  const notes = count === 1 ? "1 open note" : `${count ?? 0} open notes`;
+  // The app sends the readable title ("Webinar Funnel - Long form v3");
+  // the file name is only the fallback.
+  const plain = String(body.title ?? "").trim().slice(0, 120) || meta.name;
+  const what = escapeHtml(plain);
+
+  // A refused email must not lose the submission: it is already recorded.
+  const emailed = await sendMail(
+    `${who} finished reviewing ${plain}`,
+    `<p><strong>${escapeHtml(who)}</strong> has finished reviewing <strong>${what}</strong>.</p>
+     <p>${notes} waiting for you.</p>
+     <p><a href="${link}">Open it in RippleReview</a></p>
+     <p style="color:#888;font-size:12px">${escapeHtml(meta.name)}</p>`,
+  );
+  return { submission: row, emailed };
 }
 
 async function clients(profile: Profile) {
@@ -408,6 +450,7 @@ Deno.serve(async (req) => {
       case "link": return reply(200, await link(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
       case "notes_submitted": return reply(200, await notesSubmitted(profile, body));
+      case "approval_changed": return reply(200, await approvalChanged(profile, body));
       case "set_profile":
       case "set_name": return reply(200, await setProfile(profile, body));
       case "clients": return reply(200, await clients(profile));

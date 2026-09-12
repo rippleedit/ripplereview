@@ -747,10 +747,16 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     }
   });
 
+  // The studio hears about a sign-off without having to watch the app. The
+  // approval itself is already saved, so a failed email changes nothing.
+  const notifyApproval = (approved) =>
+    api.approvalChanged?.(fileId, `${projectName.title} — ${cut.label} v${version.label}`, approved).catch(() => {});
+
   $("[data-approval]").addEventListener("click", async (event) => {
     try {
       if (event.target.closest("[data-approve]")) {
         state.approval = await api.approve(fileId, library.client);
+        notifyApproval(true);
         toast("Approved. Thank you!");
       } else if (event.target.closest("[data-unapprove]")) {
         const ok = await dialog({ title: "Withdraw approval?", confirmLabel: "Withdraw", danger: true,
@@ -758,6 +764,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         if (!ok) return;
         await api.unapprove(fileId);
         state.approval = null;
+        notifyApproval(false);
       } else return;
       renderApproval();
     } catch (error) { toast(error.message); }

@@ -104,6 +104,7 @@ async function realApi() {
 
     // "Done reviewing", and the trail it leaves.
     notesSubmitted: (fileId, title) => server("notes_submitted", { fileId, title }),
+    approvalChanged: (fileId, title, approved) => server("approval_changed", { fileId, title, approved }),
     async submissions(fileIds) {
       if (!fileIds.length) return [];
       return check(await sb.from("submissions").select("*").in("file_id", fileIds).order("created_at", { ascending: false }));

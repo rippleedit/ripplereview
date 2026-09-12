@@ -163,6 +163,7 @@ export function demoApi() {
       return wait({ submission: row, emailed: false });
     },
     submissions: (ids) => wait((state.submissions ?? []).filter((row) => ids.includes(row.file_id))),
+    approvalChanged: () => wait({ emailed: false }),
     touch: async () => {},
 
     clients: () => wait({
