@@ -5,3 +5,6 @@ node_modules/
 # Local notes and tooling: never published.
 CLAUDE.md
 .claude/
+
+# Client pictures and other local files: never published.
+local/

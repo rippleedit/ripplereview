@@ -223,16 +223,20 @@ body { overflow: hidden; }
 /* Sized so REVIEW's caps sit a touch below RippleEdit's: companion, not rival. */
 .side-brand-mark { height: 12.5px; width: auto; }
 
-.side-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 0.8rem 0.55rem 1.2rem; }
+.side-nav { flex: 1; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 0.8rem 0.55rem 1.2rem; }
 
 .side-kicker {
-  padding: 1.1rem 0.65rem 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.1rem 0.65rem 0.6rem;
   font: 500 var(--fs-label) / 1 var(--font-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--white-52);
 }
 .side-nav > .side-kicker:first-child { padding-top: 0.3rem; }
+.side-kicker .icon { width: 0.9rem; height: 0.9rem; color: var(--white-28); }
 
 /* One row shape for everything in here: client, project, tool. */
 .side-link {
@@ -253,11 +257,20 @@ body { overflow: hidden; }
 .side-link--client { font-weight: 600; }
 .side-link--client .side-link-name { font-weight: 600; }
 
-/* Projects sit in a group under their client, marked by one rule. */
-.side-group { display: grid; gap: 0.1rem; margin: 0.25rem 0 0.6rem 1.15rem; padding-left: 0.55rem; border-left: 1px solid var(--white-08); }
-.side-link--project { gap: 0.45rem; padding: 0.42rem 0.55rem; color: var(--white-52); }
-.side-link--project .side-link-name { font-size: 0.8125rem; font-weight: 500; }
-.side-link--project.is-active { background: rgba(255, 61, 23, 0.1); color: var(--white); }
+/* Projects read as separate blocks, not as a nested tree. */
+.side-group { display: grid; gap: 0.35rem; margin: 0.1rem 0 0.6rem; }
+.side-group--nested { margin-left: 0.5rem; }
+.side-link--project {
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: rgba(242, 240, 234, 0.035);
+  color: var(--white-76);
+}
+.side-link--project:hover { background: rgba(242, 240, 234, 0.075); border-color: var(--white-08); }
+.side-link--project .side-link-name { min-width: 0; font-size: 0.8125rem; font-weight: 500; }
+.side-link--project.is-active { border-color: rgba(255, 61, 23, 0.35); background: rgba(255, 61, 23, 0.1); color: var(--white); }
 .side-link-count { display: inline-flex; flex: none; align-items: center; gap: 0.25rem; font: 400 0.6875rem / 1 var(--font-mono); color: var(--white-28); }
 .side-link-count .icon { width: 0.8rem; height: 0.8rem; color: inherit; }
 .side-empty { padding: 0.4rem 0.55rem; color: var(--white-28); font-size: 0.78rem; }

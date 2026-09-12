@@ -132,13 +132,9 @@ async function renderSidebar(r) {
               ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}
               <span class="side-link-name">${esc(f.folder)}</span>
             </a>
-            ${active ? `<div class="side-group">${projectRows(f.folder) || `<p class="side-empty">No projects yet</p>`}</div>` : ""}`;
+            ${active ? `<div class="side-group side-group--nested">${projectRows(f.folder) || `<p class="side-empty">No projects yet</p>`}</div>` : ""}`;
         }).join("") : `<div class="side-loading">${spinner()}</div>`}`
-    : `<a class="side-link side-link--client ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">
-         ${avatar(profile.client_folder, { src: profile.avatar })}
-         <span class="side-link-name">${esc(profile.client_folder)}</span>
-       </a>
-       <p class="side-kicker">Projects</p>
+    : `<p class="side-kicker">${svg("folder")}<span>Projects</span></p>
        <div class="side-group">${projectRows(profile.client_folder) || `<p class="side-empty">Nothing here yet</p>`}</div>`;
 
   sidebar.innerHTML = `
