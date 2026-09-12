@@ -29,21 +29,28 @@
     </filter>
   </svg>
 
-  <header class="app-header" data-header hidden>
-    <a class="brand" href="#/" aria-label="RippleReview, home">
-      <img src="assets/logotype.png" width="132" height="30" alt="RippleEdit">
-      <span class="brand-product">Review</span>
-    </a>
-    <nav class="app-nav" data-nav aria-label="Main"></nav>
-    <div class="app-user">
-      <span class="app-user-name" data-user-name></span>
-      <button class="button button--ghost button--compact" type="button" data-sign-out>Sign out</button>
-    </div>
-  </header>
+  <div class="auth" data-auth hidden></div>
 
-  <main id="main" data-view>
-    <div class="boot" aria-live="polite"><span class="live-dot" aria-hidden="true"></span> Loading</div>
-  </main>
+  <div class="app" data-shell hidden>
+    <aside class="sidebar" data-sidebar aria-label="Navigation"></aside>
+    <div class="sidebar-scrim" data-scrim hidden></div>
+
+    <div class="app-main">
+      <header class="app-bar">
+        <button class="icon-button app-menu" type="button" data-menu-toggle aria-label="Menu">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <nav class="crumbs" data-crumbs aria-label="Breadcrumb"></nav>
+        <div class="app-bar-actions">
+          <button class="icon-button" type="button" data-refresh aria-label="Check Dropbox for new files" title="Check Dropbox for new files">
+            <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.6 4M20 5v6h-6"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main id="main" data-view></main>
+    </div>
+  </div>
 
   <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
 </body>

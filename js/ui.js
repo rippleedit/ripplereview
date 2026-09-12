@@ -37,3 +37,27 @@ export function videoStatus(fileId, { comments, approvals }) {
   const any = comments.some((c) => c.file_id === fileId && !c.parent_id);
   return any ? { kind: "done", text: "All notes done" } : { kind: "new", text: "Ready for review" };
 }
+
+// Links, in one place: the sidebar, the lists and the review screen agree.
+export const href = {
+  space: (folder) => `#/c/${encodeURIComponent(folder)}`,
+  project: (folder, name) => `#/c/${encodeURIComponent(folder)}/p/${encodeURIComponent(name)}`,
+  video: (folder, id) => `#/c/${encodeURIComponent(folder)}/v/${encodeURIComponent(id)}`,
+};
+
+// A spinning ring. `label` is read out and shown next to it when given.
+export function spinner(label = "") {
+  return `<span class="loading" role="status">
+    <svg class="spin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>
+    ${label ? `<span>${esc(label)}</span>` : ""}
+  </span>`;
+}
+
+// Grey placeholders shaped like the cards that are on their way.
+export function skeletons(count) {
+  return Array.from({ length: count }, () => `
+    <div class="video-card is-skeleton" aria-hidden="true">
+      <div class="video-thumb skel"></div>
+      <div class="video-meta"><span class="skel skel-line"></span><span class="skel skel-line skel-line--short"></span></div>
+    </div>`).join("");
+}

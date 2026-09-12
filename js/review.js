@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, FRAME_RATES, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { esc, relTime, toast } from "./ui.js";
+import { esc, href, relTime, spinner, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -19,12 +19,12 @@ const ICON = {
 const readFps = (id) => { try { return Number(localStorage.getItem(`rr-fps:${id}`)) || null; } catch { return null; } };
 const saveFps = (id, fps) => { try { localStorage.setItem(`rr-fps:${id}`, String(fps)); } catch {} };
 
-export async function renderReview(view, { folder, fileId, profile }) {
-  view.innerHTML = `<section class="page"><div class="boot"><span class="live-dot"></span> Loading video</div></section>`;
+export async function renderReview(view, { folder, fileId, profile, getLibrary }) {
+  view.innerHTML = `<section class="page">${spinner("Loading video")}</section>`;
 
   let library;
   try {
-    library = await api.library(folder);
+    library = await getLibrary(folder);
   } catch (error) {
     view.innerHTML = `<section class="page page--narrow"><h1 class="page-title">Couldn't load this video</h1><p class="page-lede">${esc(error.message)}</p></section>`;
     return null;
@@ -35,11 +35,11 @@ export async function renderReview(view, { folder, fileId, profile }) {
     if (ver.id === fileId) { project = p; video = v; version = ver; }
   }
   if (!version) {
-    view.innerHTML = `<section class="page page--narrow"><a class="back-link" href="#/c/${encodeURIComponent(library.client)}">← Back</a><h1 class="page-title">This video has moved</h1><p class="page-lede">It's no longer in this space. Pick it again from the list.</p></section>`;
+    view.innerHTML = `<section class="page page--narrow"><h1 class="page-title">This video has moved</h1><p class="page-lede">It's no longer in this space. Pick it again from the list.</p></section>`;
     return null;
   }
 
-  const spaceHref = `#/c/${encodeURIComponent(library.client)}`;
+  const projectHref = href.project(library.client, project.name);
   const latest = video.versions.at(-1);
   const state = {
     comments: [],
@@ -57,21 +57,21 @@ export async function renderReview(view, { folder, fileId, profile }) {
   view.innerHTML = `
     <section class="review">
       <div class="review-bar">
-        <a class="back-link" href="${spaceHref}">← ${esc(project.name)}</a>
+        <h1 class="review-title">${esc(video.title)}</h1>
         ${video.versions.length > 1 ? `
           <nav class="versions" aria-label="Versions">
-            ${video.versions.map((v) => `<a href="${spaceHref}/${encodeURIComponent(v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
+            ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
           </nav>` : ""}
       </div>
 
       <div class="review-layout">
         <div class="review-main">
-          <div class="player-shell" data-shell>
+          <div class="player-shell" data-player-shell>
             <div class="player" data-player>
               <video playsinline preload="auto" data-video></video>
               <div class="player-layer" data-layer></div>
               <p class="player-hint" data-pin-hint hidden>Click the frame to mark the spot</p>
-              <div class="player-state" data-player-state><span class="live-dot"></span> Loading</div>
+              <div class="player-state" data-player-state>${spinner("Loading")}</div>
             </div>
             <div class="controls">
               <button class="round" type="button" data-play aria-label="Play">${ICON.play}</button>
@@ -92,9 +92,8 @@ export async function renderReview(view, { folder, fileId, profile }) {
 
           <div class="review-meta">
             <div>
-              <p class="kicker"><span class="live-dot" aria-hidden="true"></span> ${esc(library.client)} · ${esc(project.name)}</p>
-              <h1 class="review-title">${esc(video.title)} <span class="chip chip--version">v${version.label}</span></h1>
-              ${latest.id !== fileId ? `<p class="review-older">This is an older cut. <a class="text-link" href="${spaceHref}/${encodeURIComponent(latest.id)}">Watch v${latest.label}, the latest →</a></p>` : ""}
+              <p class="review-where"><a href="${projectHref}">${esc(project.name)}</a> · ${esc(version.name)}</p>
+              ${latest.id !== fileId ? `<p class="review-older">This is an older cut. <a class="text-link" href="${href.video(library.client, latest.id)}">Watch v${latest.label}, the latest →</a></p>` : ""}
               <p class="review-keys">Space play · ← → one frame · Shift ← → one second</p>
             </div>
             <div class="approval" data-approval></div>
@@ -156,7 +155,7 @@ export async function renderReview(view, { folder, fileId, profile }) {
       videoEl.src = await api.link(fileId);
       if (resumeAt) videoEl.addEventListener("loadedmetadata", () => { videoEl.currentTime = resumeAt; }, { once: true });
     } catch (error) {
-      playerState.innerHTML = esc(error.message);
+      playerState.textContent = error.message;
     }
   }
 
@@ -229,7 +228,7 @@ export async function renderReview(view, { folder, fileId, profile }) {
     $("[data-mute]").innerHTML = videoEl.muted ? ICON.muted : ICON.sound;
   });
   $("[data-full]").addEventListener("click", () => {
-    const shell = $("[data-shell]");
+    const shell = $("[data-player-shell]");
     if (document.fullscreenElement) document.exitFullscreen();
     else if (shell.requestFullscreen) shell.requestFullscreen();
     else videoEl.webkitEnterFullscreen?.(); // iPhone

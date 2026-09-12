@@ -1,60 +1,182 @@
-// RippleReview: routing, sign-in, the client spaces and the admin's client list.
+// RippleReview: the app shell (sidebar, top bar, routing), sign-in,
+// the client spaces and the admin's client list.
 // The review screen itself (player and notes) lives in review.js.
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { esc, relTime, toast, videoStatus } from "./ui.js";
+import { esc, href, relTime, skeletons, spinner, toast, videoStatus } from "./ui.js";
 
+const auth = document.querySelector("[data-auth]");
+const shell = document.querySelector("[data-shell]");
+const sidebar = document.querySelector("[data-sidebar]");
+const crumbs = document.querySelector("[data-crumbs]");
 const view = document.querySelector("[data-view]");
-const header = document.querySelector("[data-header]");
+
 let profile = null;
 let cleanup = null;
+let clients = null;                 // admin: the client folders, once fetched
+const libraries = new Map();        // folder → { data, at }
 
-// Routes: #/                      admin: clients · client: their space
-//         #/c/<folder>            a client space
-//         #/c/<folder>/<fileId>   reviewing one video
+// Routes: #/                        admin: clients · client: their space
+//         #/c/<folder>              one client's space
+//         #/c/<folder>/p/<project>  one project
+//         #/c/<folder>/v/<fileId>   reviewing one video
 function parseRoute() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
-  if (parts[0] === "c" && parts[1]) return { name: parts[2] ? "review" : "space", folder: parts[1], fileId: parts[2] };
-  return { name: "home" };
+  if (parts[0] !== "c" || !parts[1]) return { name: "home" };
+  const folder = parts[1];
+  if (parts[2] === "v" && parts[3]) return { name: "review", folder, fileId: parts[3] };
+  if (parts[2] === "p" && parts[3]) return { name: "project", folder, project: parts[3] };
+  return { name: "space", folder };
+}
+
+// One Dropbox listing per client, reused by the sidebar and the pages.
+async function getLibrary(folder, fresh = false) {
+  const key = folder.toLowerCase();
+  const hit = libraries.get(key);
+  if (!fresh && hit && Date.now() - hit.at < 60000) return hit.data;
+  const data = await api.library(folder);
+  libraries.set(key, { data, at: Date.now() });
+  return data;
 }
 
 async function route() {
   cleanup?.();
   cleanup = null;
-  window.scrollTo(0, 0);
 
   profile = await api.session();
   if (!profile) return renderSignIn();
 
-  header.hidden = false;
-  document.querySelector("[data-user-name]").textContent = profile.name || profile.email;
-  document.querySelector("[data-nav]").innerHTML = profile.is_admin
-    ? `<a href="#/" class="${parseRoute().name === "home" ? "is-active" : ""}">Clients</a>`
-    : "";
+  auth.hidden = true;
+  shell.hidden = false;
+  closeMenu();
 
   const r = parseRoute();
-  const ownFolder = profile.is_admin ? r.folder : profile.client_folder;
-  if (!profile.is_admin && !ownFolder) return renderMessage("Your space isn't ready yet", "RippleEdit hasn't linked a project folder to this login. Give us a shout and we'll sort it.");
-  if (r.name === "review") cleanup = await renderReview(view, { folder: ownFolder, fileId: r.fileId, profile });
-  else if (r.name === "space" || !profile.is_admin) await renderSpace(ownFolder);
-  else await renderClients();
+  const folder = profile.is_admin ? r.folder : profile.client_folder;
+  if (!profile.is_admin && !folder) {
+    renderSidebar(r);
+    return renderMessage("Your space isn't ready yet", "RippleEdit hasn't linked a project folder to this login. Give us a shout and we'll sort it.");
+  }
+
+  renderSidebar(r);
+  renderCrumbs(r);
+  view.scrollTop = 0;
+
+  if (r.name === "review") {
+    cleanup = await renderReview(view, { folder, fileId: r.fileId, profile, getLibrary });
+    renderCrumbs(r);
+  } else if (r.name === "project" || r.name === "space" || !profile.is_admin) {
+    await renderSpace(folder, r.name === "project" ? r.project : null);
+  } else {
+    await renderClients();
+  }
 }
 
 function renderMessage(title, text) {
   view.innerHTML = `
     <section class="page page--narrow">
-      <p class="kicker"><span class="live-dot" aria-hidden="true"></span> RippleReview</p>
       <h1 class="page-title">${esc(title)}</h1>
       <p class="page-lede">${esc(text)}</p>
     </section>`;
 }
 
+// Shell -------------------------------------------------------------------
+
+function openMenu() { shell.classList.add("is-menu-open"); document.querySelector("[data-scrim]").hidden = false; }
+function closeMenu() { shell.classList.remove("is-menu-open"); document.querySelector("[data-scrim]").hidden = true; }
+
+document.querySelector("[data-menu-toggle]").addEventListener("click", () =>
+  shell.classList.contains("is-menu-open") ? closeMenu() : openMenu());
+document.querySelector("[data-scrim]").addEventListener("click", closeMenu);
+
+document.querySelector("[data-refresh]").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.classList.add("is-spinning");
+  clients = null;
+  libraries.clear();
+  await route();
+  button.classList.remove("is-spinning");
+  toast("Checked Dropbox");
+});
+
+async function renderSidebar(r) {
+  const folder = profile.is_admin ? r.folder : profile.client_folder;
+  const library = folder ? libraries.get(folder.toLowerCase())?.data : null;
+
+  const projectLinks = (client) => (library && library.client.toLowerCase() === client.toLowerCase())
+    ? `<ul class="side-sub">${library.projects.map((p) => `
+        <li><a class="side-sub-item ${r.name === "project" && r.project === p.name ? "is-active" : ""}" href="${href.project(client, p.name)}">
+          ${esc(p.name)}<span>${p.videos.length}</span></a></li>`).join("")}</ul>`
+    : "";
+
+  const body = profile.is_admin
+    ? `<p class="side-label">Clients</p>
+       ${clients ? clients.folders.map((f) => `
+          <a class="side-item ${folder?.toLowerCase() === f.folder.toLowerCase() ? "is-active" : ""}" href="${href.space(f.folder)}">${esc(f.folder)}</a>
+          ${folder?.toLowerCase() === f.folder.toLowerCase() ? projectLinks(f.folder) : ""}`).join("")
+         : `<div class="side-loading">${spinner()}</div>`}
+       <a class="side-item side-item--muted ${r.name === "home" ? "is-active" : ""}" href="#/">Manage logins</a>`
+    : `<p class="side-label">Projects</p>
+       <a class="side-item ${r.name === "space" ? "is-active" : ""}" href="${href.space(profile.client_folder)}">All projects</a>
+       ${projectLinks(profile.client_folder)}`;
+
+  sidebar.innerHTML = `
+    <a class="side-brand" href="#/">
+      <img src="assets/logotype.png" width="110" height="25" alt="RippleEdit">
+      <span>Review</span>
+    </a>
+    <nav class="side-nav">${body}</nav>
+    <div class="side-foot">
+      <span class="side-user">${esc(profile.name || profile.email)}</span>
+      <button class="text-button" type="button" data-sign-out>Sign out</button>
+    </div>`;
+
+  sidebar.querySelector("[data-sign-out]").addEventListener("click", async () => {
+    await api.signOut();
+    clients = null;
+    libraries.clear();
+    location.hash = "#/";
+    route();
+  });
+
+  // Fill in what we don't have yet, then draw again.
+  if (profile.is_admin && !clients) {
+    clients = await api.clients().catch(() => ({ folders: [], orphans: [] }));
+    renderSidebar(parseRoute());
+  }
+}
+
+function renderCrumbs(r) {
+  const folder = profile.is_admin ? r.folder : profile.client_folder;
+  const library = folder ? libraries.get(folder.toLowerCase())?.data : null;
+  const parts = [];
+
+  if (profile.is_admin) parts.push({ label: "Clients", url: "#/" });
+  if (folder) parts.push({ label: library?.client ?? folder, url: href.space(folder) });
+  if (r.name === "project") parts.push({ label: r.project });
+  if (r.name === "review") {
+    const video = library?.projects.flatMap((p) => p.videos.map((v) => ({ ...v, project: p.name })))
+      .find((v) => v.versions.some((x) => x.id === r.fileId));
+    if (video) {
+      parts.push({ label: video.project, url: href.project(folder, video.project) });
+      parts.push({ label: video.title });
+    }
+  }
+
+  crumbs.innerHTML = parts.map((part, i) => {
+    const last = i === parts.length - 1;
+    const label = esc(part.label);
+    return (part.url && !last ? `<a href="${part.url}">${label}</a>` : `<span aria-current="page">${label}</span>`)
+      + (last ? "" : `<i aria-hidden="true">/</i>`);
+  }).join("");
+}
+
 // Sign in -----------------------------------------------------------------
 
 function renderSignIn() {
-  header.hidden = true;
-  view.innerHTML = `
+  shell.hidden = true;
+  auth.hidden = false;
+  auth.innerHTML = `
     <section class="signin">
       <div class="signin-card">
         <img class="signin-logo" src="assets/logotype.png" width="150" height="34" alt="RippleEdit">
@@ -77,13 +199,13 @@ function renderSignIn() {
       </div>
     </section>`;
 
-  const form = view.querySelector("[data-signin]");
+  const form = auth.querySelector("[data-signin]");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const status = form.querySelector("[data-status]");
     const button = form.querySelector("button");
     button.disabled = true;
-    status.textContent = "Signing in…";
+    status.innerHTML = spinner("Signing in");
     try {
       await api.signIn(form.email.value.trim(), form.password.value);
       route();
@@ -94,59 +216,68 @@ function renderSignIn() {
   });
 }
 
-document.querySelector("[data-sign-out]").addEventListener("click", async () => {
-  await api.signOut();
-  location.hash = "#/";
-  route();
-});
-
 // A client's space: their projects and videos ----------------------------
 
-async function renderSpace(folder) {
-  view.innerHTML = `<section class="page"><div class="boot"><span class="live-dot"></span> Loading projects</div></section>`;
+async function renderSpace(folder, only = null) {
+  const cached = libraries.get(folder.toLowerCase())?.data;
+  view.innerHTML = `
+    <section class="page">
+      <div class="page-head">
+        <h1 class="page-title">${esc(only ?? cached?.client ?? folder)}</h1>
+        ${cached ? "" : spinner("Loading")}
+      </div>
+      <div class="video-grid">${skeletons(4)}</div>
+    </section>`;
+
   let library;
   try {
-    library = await api.library(folder);
+    library = await getLibrary(folder);
   } catch (error) {
     return renderMessage("Couldn't load this space", error.message);
   }
+  renderSidebar(parseRoute());
+  renderCrumbs(parseRoute());
 
-  const videos = library.projects.flatMap((p) => p.videos);
-  const latestIds = videos.map((v) => v.versions.at(-1).id);
-  const summary = await api.summary(latestIds).catch(() => ({ comments: [], approvals: [] }));
+  const projects = only ? library.projects.filter((p) => p.name === only) : library.projects;
+  const videos = projects.flatMap((p) => p.videos);
+  const summary = await api.summary(videos.map((v) => v.versions.at(-1).id)).catch(() => ({ comments: [], approvals: [] }));
 
   const card = (video) => {
     const latest = video.versions.at(-1);
     const status = videoStatus(latest.id, summary);
     return `
-      <a class="video-card" href="#/c/${encodeURIComponent(library.client)}/${encodeURIComponent(latest.id)}">
+      <a class="video-card" href="${href.video(library.client, latest.id)}">
         <div class="video-thumb" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
         </div>
         <div class="video-meta">
           <h3>${esc(video.title)}</h3>
-          <p class="video-sub">${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}Updated ${relTime(latest.modified)}</p>
-          <span class="status status--${status.kind}">${esc(status.text)}</span>
+          <p class="video-sub">
+            <span class="status status--${status.kind}">${esc(status.text)}</span>
+            <span>${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</span>
+          </p>
         </div>
       </a>`;
   };
 
   view.innerHTML = `
     <section class="page">
-      ${profile.is_admin ? `<a class="back-link" href="#/">← All clients</a>` : ""}
-      <p class="kicker"><span class="live-dot" aria-hidden="true"></span> ${profile.is_admin ? "Client space" : "Your space"}</p>
-      <h1 class="page-title">${esc(library.client)}</h1>
-      <p class="page-lede">${profile.is_admin
-        ? `Drop videos into <code>Dropbox/Apps/RippleReview/${esc(library.client)}/&lt;Project&gt;/</code>. Name new cuts “Title v2”, “Title v3” to stack them as versions.`
-        : "Every cut we've made for you. Open a video, pause anywhere and leave a note."}</p>
-      ${library.projects.length ? library.projects.map((project) => `
+      <div class="page-head">
+        <h1 class="page-title">${esc(only ?? library.client)}</h1>
+        <p class="page-sub">${only
+          ? `${videos.length} ${videos.length === 1 ? "video" : "videos"}`
+          : `${library.projects.length} ${library.projects.length === 1 ? "project" : "projects"} · ${videos.length} ${videos.length === 1 ? "video" : "videos"}`}</p>
+      </div>
+      ${projects.length ? projects.map((project) => `
         <section class="project">
-          <div class="section-label"><span class="section-label-text">${esc(project.name)}</span><span class="section-label-count">${project.videos.length} ${project.videos.length === 1 ? "video" : "videos"}</span></div>
+          ${only ? "" : `<div class="section-label"><a class="section-label-text" href="${href.project(library.client, project.name)}">${esc(project.name)}</a><span class="section-label-count">${project.videos.length}</span></div>`}
           <div class="video-grid">${project.videos.map(card).join("")}</div>
         </section>`).join("") : `
         <div class="empty">
           <p>Nothing here yet.</p>
-          <p class="empty-sub">${profile.is_admin ? "Add a project folder with a video in Dropbox, then refresh." : "We'll let you know when your first cut is ready."}</p>
+          <p class="empty-sub">${profile.is_admin
+            ? `Drop a video into Dropbox/Apps/RippleReview/${esc(library.client)}/&lt;Project&gt;/ and hit refresh.`
+            : "We'll let you know when your first cut is ready."}</p>
         </div>`}
     </section>`;
 
@@ -184,11 +315,18 @@ function loginMessage(email, password) {
   return `Your RippleReview login\n\n${location.origin}${location.pathname}\nEmail: ${email}\nPassword: ${password}`;
 }
 
+function showHandoff(email, password) {
+  const box = view.querySelector("[data-handoff]");
+  if (!box) return;
+  box.hidden = false;
+  box.querySelector("[data-handoff-text]").textContent = loginMessage(email, password);
+}
+
 async function renderClients() {
-  view.innerHTML = `<section class="page"><div class="boot"><span class="live-dot"></span> Loading clients</div></section>`;
+  view.innerHTML = `<section class="page"><div class="page-head"><h1 class="page-title">Clients</h1>${spinner("Loading")}</div></section>`;
   let data;
   try {
-    data = await api.clients();
+    data = clients ??= await api.clients();
   } catch (error) {
     return renderMessage("Couldn't load clients", error.message);
   }
@@ -204,15 +342,16 @@ async function renderClients() {
 
   view.innerHTML = `
     <section class="page">
-      <p class="kicker"><span class="live-dot" aria-hidden="true"></span> Studio</p>
-      <h1 class="page-title">Clients</h1>
-      <p class="page-lede">One folder per client in <code>Dropbox/Apps/RippleReview</code>. Each login only ever sees its own folder.</p>
+      <div class="page-head">
+        <h1 class="page-title">Clients</h1>
+        <p class="page-sub">One folder per client in Dropbox/Apps/RippleReview. Each login only ever sees its own folder.</p>
+      </div>
 
       <div class="clients-layout">
         <div class="client-grid">
           ${data.folders.map((f) => `
             <article class="client-card">
-              <a class="client-card-head" href="#/c/${encodeURIComponent(f.folder)}">
+              <a class="client-card-head" href="${href.space(f.folder)}">
                 <h2>${esc(f.folder)}</h2><span aria-hidden="true">→</span>
               </a>
               ${f.logins.length
@@ -254,7 +393,6 @@ async function renderClients() {
     </section>`;
 
   const form = view.querySelector("[data-add-client]");
-  const handoff = view.querySelector("[data-handoff]");
   const note = view.querySelector("[data-folder-note]");
   form.folder.addEventListener("input", () => {
     const name = form.folder.value.trim();
@@ -262,13 +400,8 @@ async function renderClients() {
   });
   view.querySelector("[data-generate]").addEventListener("click", () => { form.password.value = generatePassword(); });
 
-  function showHandoff(email, password) {
-    handoff.hidden = false;
-    handoff.querySelector("[data-handoff-text]").textContent = loginMessage(email, password);
-  }
-
   view.querySelector("[data-copy]").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(handoff.querySelector("[data-handoff-text]").textContent);
+    await navigator.clipboard.writeText(view.querySelector("[data-handoff-text]").textContent);
     toast("Copied");
   });
 
@@ -276,18 +409,20 @@ async function renderClients() {
     event.preventDefault();
     const status = form.querySelector("[data-status]");
     const fields = { folder: form.folder.value.trim(), name: form.folder.value.trim(), email: form.email.value.trim(), password: form.password.value };
-    status.textContent = "Creating…";
+    status.innerHTML = spinner("Creating");
     try {
       await api.createClient(fields);
+      clients = null;
       await renderClients();
-      showHandoffAfterRender(fields.email, fields.password);
+      await renderSidebar(parseRoute());
+      showHandoff(fields.email, fields.password);
       toast(`Login created for ${fields.folder}`);
     } catch (error) {
       status.textContent = error.message;
     }
   });
 
-  view.querySelector(".client-grid").addEventListener("click", async (event) => {
+  view.querySelector(".client-grid")?.addEventListener("click", async (event) => {
     const reset = event.target.closest("[data-new-password]");
     const remove = event.target.closest("[data-remove-login]");
     if (reset) {
@@ -303,19 +438,13 @@ async function renderClients() {
       if (!confirm(`Remove the login ${remove.dataset.email}?\n\nTheir notes stay. Their videos in Dropbox are not touched.`)) return;
       try {
         await api.removeLogin(remove.dataset.removeLogin);
+        clients = null;
         await renderClients();
+        await renderSidebar(parseRoute());
         toast("Login removed");
       } catch (error) { toast(error.message); }
     }
   });
-}
-
-// renderClients rebuilds the page, so the handoff box is found again afterwards.
-function showHandoffAfterRender(email, password) {
-  const box = view.querySelector("[data-handoff]");
-  if (!box) return;
-  box.hidden = false;
-  box.querySelector("[data-handoff-text]").textContent = loginMessage(email, password);
 }
 
 window.addEventListener("hashchange", route);
