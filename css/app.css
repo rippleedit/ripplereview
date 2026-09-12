@@ -839,7 +839,10 @@ body { overflow: hidden; }
 .review-keys { margin-top: 0.5rem; color: var(--white-28); font: 400 var(--fs-label) / 1.4 var(--font-mono); letter-spacing: 0.04em; }
 
 /* Approval lives in the header, next to the title and versions. */
-.approval { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.approval { display: flex; align-items: center; gap: 0.5rem; }
+/* The two end-of-review actions travel together, and wrap together. */
+.handover { margin-left: auto; }
+.handover:empty { margin-left: auto; }
 .approved { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0.6rem 0.25rem 0.35rem; border: 1px solid var(--white-14); border-radius: var(--radius-control); }
 .approved span { display: grid; }
 .approved strong { font-size: 0.8125rem; font-weight: 600; }
