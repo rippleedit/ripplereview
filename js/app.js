@@ -351,7 +351,7 @@ async function profileDialog() {
       <div class="form">
         <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
       </div>
-      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees on your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
+      <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients see" : "the studio sees"} on your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
       <div class="sheet-signout"><button class="text-button" type="button" data-sign-out>Sign out</button></div>`,
     onOpen: (el) => {
       const input = el.querySelector("input[name=name]");
