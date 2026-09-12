@@ -349,10 +349,21 @@ async function profileDialog() {
 
 // Admin: clients and their logins -----------------------------------------
 
-function generatePassword() {
-  const words = ["bass", "loop", "kick", "snare", "vinyl", "tape", "reverb", "sample", "bounce", "master", "tempo", "chord"];
-  const pick = () => words[crypto.getRandomValues(new Uint32Array(1))[0] % words.length];
-  return `${pick()}-${pick()}-${pick()}-${10 + (crypto.getRandomValues(new Uint32Array(1))[0] % 90)}`;
+// A proper random password: 16 characters, at least one of each kind,
+// drawn from the browser's cryptographic randomness. Look-alike characters
+// (O/0, l/I/1) are left out so nobody mistypes what you send them.
+function generatePassword(length = 16) {
+  const sets = ["ABCDEFGHJKMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%&*?+="];
+  const all = sets.join("");
+  const pick = (chars) => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
+  const out = sets.map(pick);
+  while (out.length < length) out.push(pick(all));
+  // Fisher-Yates, so the guaranteed four aren't always at the front.
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
 }
 
 const appUrl = () => `${location.origin}${location.pathname}`;
