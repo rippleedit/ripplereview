@@ -275,7 +275,7 @@ async function renderSpace(folder, only = null) {
     const fresh = seen && latest.modified > seen;
     return `
       <a class="video-card ${fresh ? "is-new" : ""}" href="${href.video(library.client, latest.id)}">
-        <div class="video-thumb ${guessRatio(cut) === "9 / 16" ? "is-portrait" : ""}" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
+        <div class="video-thumb" style="aspect-ratio:${guessRatio(cut)}" data-thumb="${esc(latest.path)}" data-id="${esc(latest.id)}">
           <span class="chip chip--version">v${latest.label}</span>
           ${fresh ? `<span class="chip chip--new">New</span>` : ""}
         </div>
@@ -329,10 +329,11 @@ async function fillThumbs(slots) {
     const src = thumbs[slot.dataset.thumb];
     if (src) {
       // Two copies: a blurred one filling the box, the real one whole on top.
-      slot.insertAdjacentHTML("afterbegin", `<img class="thumb-blur" src="${src}" alt="" aria-hidden="true"><img class="thumb-shot" src="${src}" alt="" loading="lazy">`);
+      slot.insertAdjacentHTML("afterbegin", `<img class="thumb-shot" src="${src}" alt="" loading="lazy">`);
       const img = slot.querySelector(".thumb-shot");
       img.addEventListener("load", () => {
-        slot.classList.toggle("is-portrait", img.naturalHeight > img.naturalWidth);
+        // The file's real shape wins over the guess from its name.
+        if (img.naturalWidth && img.naturalHeight) slot.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
       }, { once: true });
     }
     else missing.push(slot);
@@ -344,7 +345,7 @@ async function fillThumbs(slots) {
       slot.insertAdjacentHTML("afterbegin", `<video class="thumb-shot" src="${esc(url)}#t=1" muted playsinline preload="metadata" aria-hidden="true"></video>`);
       const clip = slot.querySelector("video");
       clip.addEventListener("loadedmetadata", () => {
-        slot.classList.toggle("is-portrait", clip.videoHeight > clip.videoWidth);
+        if (clip.videoWidth && clip.videoHeight) slot.style.aspectRatio = `${clip.videoWidth} / ${clip.videoHeight}`;
       }, { once: true });
     } catch {}
   }
