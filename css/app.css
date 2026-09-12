@@ -304,7 +304,10 @@ body { overflow: hidden; }
   transition: background-color 160ms ease;
 }
 .side-foot:hover { background: var(--white-08); }
-.side-me { display: grid; gap: 0.1rem; min-width: 0; }
+/* The studio signs itself here the way it signs its notes: the person, then
+   the company - so anyone on the team can see which account they are in. */
+.side-me { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.05rem 0.35rem; min-width: 0; }
+.side-org { font-size: 0.7rem; color: var(--white-28); }
 .side-me strong { overflow: hidden; font-size: 0.875rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .side-foot-icon { margin-left: auto; font-size: 1rem; color: var(--white-28); }
 .side-foot:hover .side-foot-icon { color: var(--white-76); }
