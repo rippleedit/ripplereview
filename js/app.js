@@ -184,22 +184,22 @@ function renderSignIn() {
   auth.hidden = false;
   auth.innerHTML = `
     <div class="signin">
-      <div class="signin-card">
+      <div class="signin-inner">
         <div class="signin-brand">
           <img class="signin-logo" src="assets/logotype.png" width="132" height="30" alt="RippleEdit">
           <span class="side-brand-dot" aria-hidden="true"></span>
           <img class="signin-mark" src="assets/ripplereview-mark.png" alt="Review">
         </div>
-        <form class="form form--boxed" data-signin>
+        <form class="form" data-signin>
           <label><span>Email</span><input type="email" name="email" autocomplete="email" required ${api.demo ? 'value="studio@ripple-edit.com"' : ""}></label>
           <label><span>Password</span><input type="password" name="password" autocomplete="current-password" ${api.demo ? "" : "required"}></label>
-          <button class="button button--solid button--block" type="submit">Sign in</button>
+          <button class="button button--solid button--block" type="submit">Sign in <span aria-hidden="true">→</span></button>
           <p class="form-status" role="status" data-status></p>
         </form>
+        <p class="signin-foot">${api.demo
+          ? "Demo mode · any email signs in. Use one containing “client” for the client's view."
+          : "Lost your login? Message RippleEdit and we'll send you a new one."}</p>
       </div>
-      <p class="signin-foot">${api.demo
-        ? "Demo mode · any email signs in. Use one containing “client” for the client's view."
-        : "Lost your login? Message RippleEdit and we'll send you a new one."}</p>
     </div>`;
 
   const form = auth.querySelector("[data-signin]");
@@ -320,7 +320,7 @@ async function profileDialog() {
         ${avatar(profile.name || profile.email, { studio: profile.is_admin, size: "md" })}
         <div><strong>${esc(profile.name || profile.email)}</strong><span>${esc(profile.email)}</span></div>
       </div>
-      <div class="form form--boxed">
+      <div class="form">
         <label><span>Name on your notes</span><input name="name" value="${esc(profile.name)}" placeholder="e.g. Razz" maxlength="40" autocomplete="off"></label>
       </div>
       <p class="sheet-note">${svg("alert")}<span>This is what ${profile.is_admin ? "clients" : "the studio"} sees next to your notes. Yours always show in ${profile.is_admin ? "the studio's orange" : "your own colour"}.</span></p>
@@ -393,7 +393,7 @@ async function addClientDialog() {
     title: "Add a client",
     confirmLabel: "Create login",
     body: `
-      <div class="form form--boxed">
+      <div class="form">
         <label><span>Client name</span><input name="folder" placeholder="e.g. Nordbeats" autocomplete="off" required></label>
         <label><span>Email</span><input name="email" type="email" autocomplete="off" required></label>
         <label><span>Password</span>

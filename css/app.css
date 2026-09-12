@@ -421,50 +421,41 @@ body { overflow: hidden; }
 .empty p:first-child { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
 .empty-sub { margin-top: 0.4rem; color: var(--white-52); font-size: var(--fs-small); }
 
-/* Sign in: one centred card on an empty stage. No marketing, no footage. */
+/* Sign in: the lockup, two lines to fill in, one button. No frame around
+   it - the empty stage and the glow do the framing. */
 .signin {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 1.2rem;
   min-height: 100svh;
   padding: 2rem 1.25rem;
   background:
-    radial-gradient(60% 45% at 50% 12%, rgba(255, 61, 23, 0.12), transparent 70%),
+    radial-gradient(58% 42% at 50% 10%, rgba(255, 61, 23, 0.13), transparent 72%),
     var(--black);
 }
 
-.signin-card {
-  width: min(100%, 372px);
-  padding: 1.9rem 1.6rem 1.7rem;
-  border: 1px solid var(--white-14);
-  border-radius: 14px;
-  background: var(--black-soft);
-  box-shadow: 0 40px 90px -50px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(242, 240, 234, 0.04);
-}
+.signin-inner { width: min(100%, 348px); }
 
-.signin-brand { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding-bottom: 1.6rem; margin-bottom: 1.6rem; border-bottom: 1px solid var(--white-08); }
-.signin-logo { width: 118px; height: auto; }
+.signin-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding-bottom: 2.2rem;
+  margin-bottom: 2.2rem;
+  border-bottom: 1px solid var(--white-08);
+}
+.signin-logo { width: 124px; height: auto; }
 .signin-mark { height: 14px; width: auto; }
 
-.signin-foot { max-width: 42ch; color: var(--white-28); font-size: 0.78rem; text-align: center; line-height: 1.5; }
+.signin .form { gap: 1.6rem; }
+.signin .form input { font-size: 0.9375rem; }
+.signin-foot { margin-top: 2.2rem; color: var(--white-28); font-size: 0.78rem; text-align: center; line-height: 1.55; }
+.form-status:empty { display: none; }
+.signin .form-status { display: flex; justify-content: center; }
 
-/* Boxed fields: how a tool looks, rather than a contact form. */
-.form--boxed { gap: 0.9rem; }
-.form--boxed label { gap: 0.4rem; }
-.form--boxed input {
-  min-height: 42px;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--white-14);
-  border-radius: 8px;
-  background: var(--black);
-  font-size: 0.9375rem;
-}
-.form--boxed input:focus { border-color: var(--white-28); box-shadow: 0 0 0 3px rgba(242, 240, 234, 0.06); }
-.button--block { width: 100%; margin-top: 0.5rem; border-radius: 8px; }  /* square-ish, to match the fields */
+.button--block { width: 100%; margin-top: 0.9rem; }
 .button--block:hover { transform: none; }
-.form--boxed .form-status:empty { display: none; }
-.form--boxed .form-status { justify-content: center; display: flex; padding-top: 0.2rem; }
 
 /* A client space ---------------------------------------------------------- */
 
