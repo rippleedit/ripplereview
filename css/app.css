@@ -484,7 +484,7 @@ body { overflow: hidden; }
 /* Every cut is the same height; its shape decides the width, so a short
    reads as a short at a glance without shrinking the long form. */
 .video-grid {
-  --shot-h: clamp(180px, 22vh, 250px);
+  --shot-h: clamp(210px, 30vh, 330px);
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -495,7 +495,9 @@ body { overflow: hidden; }
   display: grid;
   gap: 0.6rem;
   align-content: start;
-  width: max(calc(var(--shot-h) * var(--ar, 1.7778)), 160px);
+  /* Width follows the shape exactly: 16:9 wide, 9:16 narrow. No minimum,
+     or a short would be stretched back towards a landscape box. */
+  width: calc(var(--shot-h) * var(--ar, 1.7778));
   max-width: 100%;
 }
 .video-thumb {
