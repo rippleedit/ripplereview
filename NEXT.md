@@ -27,6 +27,38 @@ by making a folder in Finder, which works but means switching apps.
 **Team page** — studio logins beside client logins in Manage logins: invite an
 editor, set what they may do, assign them to clients or projects.
 
+## Mobile — works, not yet polished
+
+Measured on the live site at 375×812 (iPhone size) on 13 Sep 2026:
+
+- **No horizontal overflow** anywhere, and the sidebar correctly slides off
+  screen behind the menu button.
+- **The review screen stacks properly**: player on top (341×192), notes panel
+  full width underneath, composer usable.
+
+What needs doing before telling clients to review on a phone:
+
+- **Touch targets are too small.** Apple's floor is 44px. Ours: the done
+  circle is 22px, the All/Open/Done tabs 23px, the scrub bar 24px tall. The
+  play button is 40px and just about passes. Everything a thumb hits on the
+  review screen should be at least 44px on touch devices.
+- **Scrubbing precision.** A 24px-tall bar on a 341px-wide player is a rough
+  instrument for frame-accurate notes. Consider a larger hit area on touch,
+  and frame-step buttons, since there is no keyboard.
+- **Drawing and pinning with a finger** are untested on a real device. The
+  code uses pointer events, so it should work, but it has never been tried.
+- **The notes panel is 722px tall** below the player, so a client reads the
+  video and the notes in two separate scrolls. A collapsed notes sheet that
+  slides up over the player would suit a phone better.
+- **Full screen on iPhone** falls back to the native player
+  (`webkitEnterFullscreen`), which hides our pins and drawings. Worth knowing
+  before recommending it.
+- **Landscape** is untested.
+
+Verdict: a client *can* review on a phone today, and nothing is broken. But it
+was designed at desktop size, and the small controls will frustrate anyone
+trying to tick notes off on the train.
+
 ## Smaller things we noticed and left
 
 - **Notes don't mark themselves new.** The studio's "Notes in" chip fires when a
