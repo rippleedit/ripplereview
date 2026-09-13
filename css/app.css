@@ -678,8 +678,8 @@ body { overflow: hidden; }
 .review-where a:hover { color: var(--white); }
 
 .versions { display: flex; gap: 0.35rem; padding: 0.25rem; border: 1px solid var(--white-14); border-radius: var(--radius-control); }
-.versions a { transition: color 200ms ease, background-color 240ms var(--ease-out); }
-.versions a {
+.versions a, .versions span { transition: color 200ms ease, background-color 240ms var(--ease-out); }
+.versions a, .versions span {
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-control);
   font: 500 var(--fs-label) / 1 var(--font-mono);
@@ -688,6 +688,7 @@ body { overflow: hidden; }
   transition: color 200ms ease, background-color 200ms ease;
 }
 .versions a:hover { color: var(--white); }
+.versions span { cursor: default; }
 .versions a.is-active { background: var(--white); color: var(--black); }
 
 .review-layout {

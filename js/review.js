@@ -66,10 +66,12 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
           <h1 class="review-title">${esc(projectName.title)}</h1>
           <span class="tag tag--cut">${esc(cut.label)}</span>
-          ${video.versions.length > 1 ? `
-            <nav class="versions" aria-label="Versions">
-              ${video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")}
-            </nav>` : ""}
+          <nav class="versions" aria-label="Versions">
+            ${video.versions.length > 1
+              ? video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")
+              /* A lone version still says which one it is, just with nothing to switch to. */
+              : `<span class="is-active" aria-current="page">v${version.label}</span>`}
+          </nav>
         </span>
         <div class="approval" data-approval></div>
         <div class="handover" data-handover></div>

@@ -27,10 +27,10 @@ const JOB = /^([A-Za-z]{2,4})[-_ ]?(\d{1,3})$/;
 // Cut markers look like job codes (SF-01); they are never the job.
 const MARKERS = new Set(["sf", "lf", "tr", "reel", "promo", "bts", "teaser", "v"]);
 
-// Target for the review copy. ~4-5 Mbit/s at 1080p, keyframe every second so
-// scrubbing lands where you expect.
-const BITRATE = process.env.RR_BITRATE ?? "4.5M";
-const MAXRATE = process.env.RR_MAXRATE ?? "6M";
+// Target for the review copy: 3 Mbit/s at 1080p, keyframe every second so
+// scrubbing lands where you expect. Override per run with RR_BITRATE=4M.
+const BITRATE = process.env.RR_BITRATE ?? "3M";
+const MAXRATE = process.env.RR_MAXRATE ?? "4.5M";
 
 const say = (...parts) => console.log(...parts);
 
