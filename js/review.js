@@ -64,10 +64,13 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       <div class="review-bar">
         <span class="title-line">
           ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
-          <h1 class="review-title">${esc(projectName.title)}</h1>
-          <span class="tag tag--cut">${esc(cut.label)}</span>
-          ${cut.vsl ? `<span class="tag tag--vsl">VSL</span>` : ""}
-          ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough cut</span>` : ""}
+          ${cut.vsl
+            /* VSL: "Main VSL [VSL] [ROUGH]" - the project is only ever "VSL", so the piece is the title. */
+            ? `<h1 class="review-title">${esc(cut.label)}</h1>
+               <span class="tag tag--vsl">VSL</span>
+               ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough</span>` : ""}`
+            : `<h1 class="review-title">${esc(projectName.title)}</h1>
+               <span class="tag tag--cut">${esc(cut.label)}</span>`}
           <nav class="versions" aria-label="Versions">
             ${video.versions.length > 1
               ? video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")

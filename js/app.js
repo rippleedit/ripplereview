@@ -314,7 +314,7 @@ async function renderSpace(folder, only = null) {
           <span class="title-line">
             <h3>${esc(cut.label)}</h3>
             ${cut.vsl ? `<span class="tag tag--vsl tag--mini">VSL</span>` : ""}
-            ${cut.rough ? `<span class="tag tag--rough tag--mini" title="Polished rough cut: no motion graphics, music or sound design yet">Rough cut</span>` : ""}
+            ${cut.rough ? `<span class="tag tag--rough tag--mini" title="Polished rough cut: no motion graphics, music or sound design yet">Rough</span>` : ""}
           </span>
           ${cut.extra ? `<p class="video-extra">${esc(cut.extra)}</p>` : ""}
           <p class="video-sub">${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</p>
