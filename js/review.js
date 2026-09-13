@@ -66,6 +66,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
           <h1 class="review-title">${esc(projectName.title)}</h1>
           <span class="tag tag--cut">${esc(cut.label)}</span>
+          ${cut.vsl ? `<span class="tag tag--vsl">VSL</span>` : ""}
+          ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough cut</span>` : ""}
           <nav class="versions" aria-label="Versions">
             ${video.versions.length > 1
               ? video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")
@@ -765,7 +767,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (!ok) return;
     button.disabled = true;
     try {
-      const result = await api.notesSubmitted(fileId, `${projectName.title} — ${cut.label} v${version.label}`);
+      const result = await api.notesSubmitted(fileId, `${projectName.title} — ${cut.label}${cut.rough ? " (rough cut)" : ""} v${version.label}`);
       state.submission = result.submission;
       renderHandover();
       toast("Sent to RippleEdit");
@@ -778,7 +780,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   // The studio hears about a sign-off without having to watch the app. The
   // approval itself is already saved, so a failed email changes nothing.
   const notifyApproval = (approved) =>
-    api.approvalChanged?.(fileId, `${projectName.title} — ${cut.label} v${version.label}`, approved).catch(() => {});
+    api.approvalChanged?.(fileId, `${projectName.title} — ${cut.label}${cut.rough ? " (rough cut)" : ""} v${version.label}`, approved).catch(() => {});
 
   $("[data-approval]").addEventListener("click", async (event) => {
     try {

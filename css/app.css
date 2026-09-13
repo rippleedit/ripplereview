@@ -1183,6 +1183,9 @@ body { overflow: hidden; }
 .tag--code { border: 1px solid color-mix(in srgb, var(--signal) 55%, transparent); background: rgba(255, 61, 23, 0.12); color: var(--signal); }
 .tag--preview { border: 1px solid var(--white-14); color: var(--white-52); }
 .tag--cut { background: var(--white-14); color: var(--white); letter-spacing: 0.08em; }
+/* VSL projects only: what kind of project, and whether this is the rough cut. */
+.tag--vsl { border: 1px solid rgba(181, 140, 246, 0.5); background: rgba(181, 140, 246, 0.12); color: #c9a8ff; }
+.tag--rough { border: 1px solid rgba(242, 193, 78, 0.5); background: rgba(242, 193, 78, 0.12); color: #f5cf6e; }
 .video-extra { color: var(--white-52); font-size: var(--fs-small); }
 .section-label-text--title { color: var(--white); font-family: var(--font-sans); font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; text-transform: none; }
 .section-label .tag--code { order: -1; }

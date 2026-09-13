@@ -34,6 +34,18 @@ const LIBRARY = {
         ],
       },
       {
+        name: "NIL-12 - VSL",
+        modified: day(0.2),
+        videos: [
+          { key: "vsl-main", title: "_PREVIEW_NIL-12_VSL_Main-VSL_ROUGH", modified: day(0.2), versions: [
+            file("vm1", "_PREVIEW_NIL-12_VSL_Main-VSL_ROUGH_v1.mp4", 1, 0.2, 0),
+          ] },
+          { key: "vsl-thanks", title: "_PREVIEW_NIL-12_VSL_Thank-You-Page", modified: day(0.3), versions: [
+            file("vt1", "_PREVIEW_NIL-12_VSL_Thank-You-Page_v1.mp4", 1, 0.3, 1),
+          ] },
+        ],
+      },
+      {
         name: "NIL-09_Studio-Session",
         modified: day(9),
         videos: [

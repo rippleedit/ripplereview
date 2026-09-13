@@ -246,8 +246,36 @@ const FORMATS = {
 };
 const PLATFORMS = { yt: "YouTube", ig: "Instagram", tt: "TikTok", fb: "Facebook", li: "LinkedIn", x: "X" };
 
+// VSL projects: _PREVIEW_ANT-23_VSL_Main-VSL_ROUGH_v1. The VSL group marks the
+// whole project type; what follows names the piece (Main VSL, Thank You Page,
+// Breakout 01), and ROUGH flags a polished rough cut without motion graphics,
+// music or sound design. Pieces sort main film first.
+function parseVsl(raw, base) {
+  const groups = pieces(raw).filter((part) => !/^preview$/i.test(part));
+  if (!groups.some((part) => /^vsl$/i.test(part))) return null;
+
+  let rough = false;
+  const words = [];
+  for (const part of groups) {
+    const job = JOB.exec(part);
+    if (job && `${job[1].toUpperCase()}-${job[2]}` === base.code) continue;
+    if (/^vsl$/i.test(part)) continue;
+    if (/^rough$/i.test(part)) { rough = true; continue; }
+    words.push(...part.split(/[-–]/).filter(Boolean));
+  }
+
+  const label = words.join(" ").replace(/\s+/g, " ").trim() || "VSL";
+  const lower = label.toLowerCase();
+  const number = Number(/(\d{1,3})\s*$/.exec(label)?.[1] ?? 0);
+  const rank = lower.includes("main") ? 0 : lower.includes("thank") ? 1 : lower.includes("breakout") ? 2 : 3;
+  return { ...base, format: null, platform: null, platforms: [], label, extra: "", vsl: true, rough, rank, number };
+}
+
 export function parseVideo(raw = "", projectTitle = "") {
   const base = parseTitle(raw);
+  const vsl = parseVsl(raw, base);
+  if (vsl) return vsl;
+
   const rest = [];
   let format = null;
   let platform = null;
@@ -291,7 +319,7 @@ export function parseVideo(raw = "", projectTitle = "") {
     else if (["Short", "Reel"].includes(format.label)) platforms = ["Reels", "Shorts", "TikTok"];
   }
 
-  return { ...base, format, platform, platforms, label, extra, rank: format?.rank ?? 6, number: format?.number ?? 0 };
+  return { ...base, format, platform, platforms, label, extra, vsl: false, rough: false, rank: format?.rank ?? 6, number: format?.number ?? 0 };
 }
 
 // What's new since you last looked. Kept in this browser: the studio and the
