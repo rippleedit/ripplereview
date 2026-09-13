@@ -54,7 +54,7 @@ async function realApi() {
     async summary(fileIds) {
       if (!fileIds.length) return { comments: [], approvals: [] };
       const [comments, approvals] = await Promise.all([
-        sb.from("comments").select("file_id, done, parent_id").in("file_id", fileIds),
+        sb.from("comments").select("file_id, done, parent_id, author_is_admin").in("file_id", fileIds),
         sb.from("approvals").select("*").in("file_id", fileIds),
       ]);
       return { comments: check(comments), approvals: check(approvals) };

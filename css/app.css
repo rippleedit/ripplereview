@@ -598,6 +598,8 @@ body { overflow: hidden; }
 /* Waiting on the client: the one state that wants attention. */
 .status--new { border-color: rgba(255, 61, 23, 0.55); background: rgba(58, 14, 6, 0.72); color: #ff7a5e; }
 .status--new i { animation: pulse 1.8s ease-in-out infinite; }
+/* The studio left notes before the client watched: same call to action as "Review". */
+.status--brief { border-color: rgba(255, 61, 23, 0.55); background: rgba(58, 14, 6, 0.72); color: #ff7a5e; }
 /* Work waiting on the studio: blue, so notes can't be overlooked. */
 .status--notes { border-color: rgba(75, 179, 253, 0.55); background: rgba(6, 28, 46, 0.72); color: #6cc3ff; }
 /* Everything answered, not yet signed off. */

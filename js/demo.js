@@ -71,6 +71,7 @@ const SEED = {
     { id: "c1", file_id: "id:demo-md3", client_folder: "nile waves", parent_id: null, author_id: "u-client", author_name: "Nile Waves", author_is_admin: false, body: "Can we hold on this shot a bit longer? It cuts away right before the drop.", time_sec: 2.4, pin_x: 0.52, pin_y: 0.44, done: false, created_at: day(0.05) },
     { id: "c2", file_id: "id:demo-md3", client_folder: "nile waves", parent_id: "c1", author_id: "u-admin", author_name: "Razz", author_is_admin: true, body: "Yes, I'll let it ride into the drop.", time_sec: null, pin_x: null, pin_y: null, done: false, created_at: day(0.04) },
     { id: "c3", file_id: "id:demo-md3", client_folder: "nile waves", parent_id: null, author_id: "u-client", author_name: "Nile Waves", author_is_admin: false, body: "Logo a little smaller here please.", time_sec: 6.1, pin_x: 0.2, pin_y: 0.18, done: true, created_at: day(0.03) },
+    { id: "c5", file_id: "id:demo-vm1", client_folder: "nile waves", parent_id: null, author_id: "u-admin", author_name: "Razz", author_is_admin: true, body: "This is the rough cut: no motion graphics, music or sound design yet. Focus on the story and pacing.", time_sec: null, pin_x: null, pin_y: null, done: false, created_at: day(0.15) },
     { id: "c4", file_id: "id:demo-md3", client_folder: "nile waves", parent_id: null, author_id: "u-client", author_name: "Nile Waves", author_is_admin: false, body: "Love the colour on this one overall.", time_sec: null, pin_x: null, pin_y: null, done: false, created_at: day(0.02) },
   ],
   approvals: [

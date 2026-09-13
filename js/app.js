@@ -613,7 +613,8 @@ async function gatherHome() {
     }
     const job = jobs.get(key);
     job.cuts.push(cut);
-    job.openNotes += summary.comments.filter((c) => c.file_id === cut.latest.id && !c.parent_id && !c.done).length;
+    // The client's open notes only: a briefing from the studio isn't work waiting on the studio.
+    job.openNotes += summary.comments.filter((c) => c.file_id === cut.latest.id && !c.parent_id && !c.done && !c.author_is_admin).length;
     if (cut.status.kind === "approved") job.approved += 1;
     if (cut.handed && (!job.handedAt || cut.handed.created_at > job.handedAt)) job.handedAt = cut.handed.created_at;
   }

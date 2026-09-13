@@ -34,8 +34,13 @@ export function toast(message) {
 export function videoStatus(fileId, { comments, approvals }) {
   // `short` rides on the frame, `text` explains it on hover.
   if (approvals.some((a) => a.file_id === fileId)) return { kind: "approved", short: "Approved", text: "Approved", icon: "check" };
-  const open = comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done).length;
-  if (open) return { kind: "notes", short: String(open), text: `${open} open ${open === 1 ? "note" : "notes"}`, icon: "message" };
+  const open = comments.filter((c) => c.file_id === fileId && !c.parent_id && !c.done);
+  // Open notes from the client are work for the studio: blue.
+  const theirs = open.filter((c) => !c.author_is_admin).length;
+  if (theirs) return { kind: "notes", short: String(theirs), text: `${theirs} open ${theirs === 1 ? "note" : "notes"}`, icon: "message" };
+  // Notes only from the studio are a briefing left before the client watches:
+  // orange, because the next move is the client's.
+  if (open.length) return { kind: "brief", short: String(open.length), text: `${open.length} ${open.length === 1 ? "note" : "notes"} from RippleEdit · ready for review`, icon: "message" };
   const any = comments.some((c) => c.file_id === fileId && !c.parent_id);
   return any
     ? { kind: "done", short: "Done", text: "All notes done", icon: "check" }
@@ -353,10 +358,13 @@ export function byJobNumber(a, b) {
 // open anywhere wins; then "every cut approved"; anything else is out for review.
 export function projectStage(latestIds, { comments, approvals }) {
   if (!latestIds.length) return "empty";
-  const ids = new Set(latestIds);
-  if (comments.some((c) => ids.has(c.file_id) && !c.parent_id && !c.done)) return "notes";
+  // An approved cut is settled, whatever notes were left on it - the same rule
+  // its own card follows, so the project badge and the cards always agree.
   const approved = new Set(approvals.map((a) => a.file_id));
-  return latestIds.every((id) => approved.has(id)) ? "approved" : "review";
+  const live = new Set(latestIds.filter((id) => !approved.has(id)));
+  // Only the client's open notes make it the studio's turn; the studio's own briefing notes don't.
+  if (comments.some((c) => live.has(c.file_id) && !c.parent_id && !c.done && !c.author_is_admin)) return "notes";
+  return live.size === 0 ? "approved" : "review";
 }
 
 // The job code carries the stage: orange with a dot while it's out for review,
