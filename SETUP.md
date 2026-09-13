@@ -45,8 +45,12 @@ set the subdomain's **CNAME** record to `rippleedit.github.io` (this replaces it
 ## Daily use
 
 - **New client:** Clients page → "Add a client login" → copy the login message and send it to them.
-- **New video:** export a review copy (H.264 .mp4, 1080p, ~8–10 Mbps, AAC audio) and drop it into
-  `Dropbox/Apps/RippleReview/<Client>/<Project>/`.
+- **New video:** export your master as usual, then drop it into `~/Desktop/RippleDrop`
+  with the Proxy Watcher running (`tools/Proxy Watcher.command`). It makes the review
+  copy, names it `_PREVIEW_…` and files it under the right client and project by its job
+  code. The master stays out of Dropbox, in `RippleDrop/_masters`.
+  To do it by hand instead: export H.264 .mp4, 1080p, ~4–6 Mbps, keyframe every second,
+  AAC 256 kbps, and drop it into `Dropbox/Apps/RippleReview/<Client>/<Project>/`.
 - **New version:** same folder, same title plus `v2`, `v3`: `Midnight Drive v2.mp4`.
 - **Notes into your edit:** Export → "Resolve markers" → in Resolve: Timelines → Import → Timeline Markers from EDL.
 - **Try it without any setup:** open the site with `?demo` at the end of the address.

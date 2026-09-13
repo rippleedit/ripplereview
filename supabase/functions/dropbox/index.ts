@@ -138,16 +138,19 @@ async function library(profile: Profile, requested: unknown) {
 
   // Folders sitting directly in the client's space are projects, even before
   // a single cut has been dropped in - otherwise a new job looks missing.
+  // A leading underscore means "studio only" (_MASTERS, _WIP): never listed.
   for (const entry of entries) {
     if (entry[".tag"] !== "folder") continue;
     const parts = entry.path_display.split("/").slice(2);
-    if (parts.length !== 1) continue;
+    if (parts.length !== 1 || parts[0].startsWith("_")) continue;
     projects.set(parts[0], { name: parts[0], videos: new Map() });
   }
 
   for (const entry of entries) {
     if (entry[".tag"] !== "file" || !VIDEO.test(entry.name)) continue;
     const parts = entry.path_display.split("/").slice(2); // drop "" and the client folder
+    // Anything inside an underscore folder belongs to the studio alone.
+    if (parts.slice(0, -1).some((part: string) => part.startsWith("_"))) continue;
     const projectName = parts.length > 1 ? parts[0] : "Unsorted";
     if (!projects.has(projectName)) projects.set(projectName, { name: projectName, videos: new Map() });
     const project = projects.get(projectName);
@@ -163,6 +166,20 @@ async function library(profile: Profile, requested: unknown) {
       modified: entry.server_modified,
       version,
     });
+  }
+
+  // Where review copies exist, only they are shown: a master left beside them
+  // is the studio's business, not the client's.
+  for (const project of projects.values()) {
+    const keys = [...project.videos.keys()];
+    const previews = keys.filter((key) => project.videos.get(key).versions.some((v: any) => /^_preview/i.test(v.name)));
+    if (previews.length && previews.length < keys.length) {
+      for (const key of keys) {
+        const video = project.videos.get(key);
+        video.versions = video.versions.filter((v: any) => /^_preview/i.test(v.name));
+        if (!video.versions.length) project.videos.delete(key);
+      }
+    }
   }
 
   const latest = (list: { modified: string }[]) => list.reduce((a, b) => (a > b.modified ? a : b.modified), "");
