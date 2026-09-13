@@ -4,7 +4,7 @@
 
 import { api } from "./api.js";
 import { renderReview } from "./review.js";
-import { avatar, byJobNumber, dialog, copyField, esc, guessRatio, href, lastSeen, loginId, loginName, markSeen, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
+import { avatar, byJobNumber, dialog, projectStage, stageBadge, copyField, esc, guessRatio, href, lastSeen, loginId, loginName, markSeen, parseTitle, parseVideo, relTime, skeletons, slug, spinner, svg, toast, videoStatus, wireCopy } from "./ui.js";
 
 const auth = document.querySelector("[data-auth]");
 const shell = document.querySelector("[data-shell]");
@@ -16,6 +16,8 @@ let profile = null;
 let cleanup = null;
 let clients = null;                 // admin: the client folders, once fetched
 const libraries = new Map();        // folder → { data, at }
+const stages = new Map();           // "folder/project" → review | notes | approved | empty
+const stageKey = (folder, project) => `${folder.toLowerCase()}/${project}`;
 
 // Routes: #/                        admin: clients · client: their space
 //         #/c/<folder>              one client's space
@@ -119,7 +121,7 @@ async function renderSidebar(r) {
       const active = r.name === "project" && r.project === p.name;
       return `
         <a class="side-link side-link--project ${active ? "is-active" : ""}" href="${href.project(client, p.name)}">
-          ${info.code ? `<span class="tag tag--mini ${active ? "tag--code" : "tag--quiet"}">${esc(info.code)}</span>` : ""}
+          ${stageBadge(info.code, stages.get(stageKey(client, p.name)) ?? "empty", { mini: true })}
           <span class="side-link-name">${esc(info.title)}</span>
           ${fresh ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}
           <span class="side-link-count">${svg("film")}${p.videos.length}</span>
@@ -283,11 +285,14 @@ async function renderSpace(folder, only = null) {
   const all = profile.is_admin ? library.projects : library.projects.filter((p) => !p.empty);
   const projects = only ? all.filter((p) => p.name === only) : all;
   const videos = projects.flatMap((p) => p.videos);
-  const latestIds = videos.map((v) => v.versions.at(-1).id);
+  const latestIds = all.flatMap((p) => p.videos.map((v) => v.versions.at(-1).id));
   const [summary, submissions] = await Promise.all([
     api.summary(latestIds).catch(() => ({ comments: [], approvals: [] })),
     api.submissions(latestIds).catch(() => []),
   ]);
+  for (const p of all) stages.set(stageKey(library.client, p.name), projectStage(p.videos.map((v) => v.versions.at(-1).id), summary));
+  const stageOf = (name) => stages.get(stageKey(library.client, name)) ?? "empty";
+  renderSidebar(parseRoute());
   const handedOver = new Map(submissions.map((row) => [row.file_id, row]));
 
   const seen = lastSeen(library.client);
@@ -313,8 +318,7 @@ async function renderSpace(folder, only = null) {
         <div class="video-meta">
           <span class="title-line">
             <h3>${esc(cut.label)}</h3>
-            ${cut.vsl ? `<span class="tag tag--vsl tag--mini">VSL</span>` : ""}
-            ${cut.rough ? `<span class="tag tag--rough tag--mini" title="Polished rough cut: no motion graphics, music or sound design yet">Rough</span>` : ""}
+            ${cut.rough ? `<span class="tag tag--rough tag--mini" title="Polished rough cut: no motion graphics, music or sound design yet">Rough-cut</span>` : ""}
           </span>
           ${cut.extra ? `<p class="video-extra">${esc(cut.extra)}</p>` : ""}
           <p class="video-sub">${video.versions.length > 1 ? `${video.versions.length} versions · ` : ""}${relTime(latest.modified)}</p>
@@ -328,6 +332,9 @@ async function renderSpace(folder, only = null) {
   const ordered = only
     ? projects
     : [...projects].sort((a, b) => (finishedSet.has(a.name) - finishedSet.has(b.name)) || byJobNumber(a, b));
+  // Open the first project still in play: not finished, not fully approved.
+  const firstLive = ordered.findIndex((p) => !finishedSet.has(p.name) && stageOf(p.name) !== "approved");
+  const openIndex = firstLive === -1 ? 0 : firstLive;
   const face = profile.is_admin
     ? (clients?.folders.find((f) => f.folder.toLowerCase() === library.client.toLowerCase())?.logins.find((l) => l.avatar)?.avatar)
     : profile.avatar;
@@ -336,7 +343,7 @@ async function renderSpace(folder, only = null) {
     <section class="page">
       <div class="page-head">
         ${only
-          ? (parseTitle(only).code ? `<span class="tag tag--code">${esc(parseTitle(only).code)}</span>` : "")
+          ? stageBadge(parseTitle(only).code, stageOf(only))
           : `<span class="page-face">${avatar(library.client, { size: "md", src: face })}</span>`}
         <h1 class="page-title">${esc(only ? parseTitle(only).title : library.client)}</h1>
         <p class="page-sub">${only
@@ -346,14 +353,15 @@ async function renderSpace(folder, only = null) {
       ${ordered.length ? ordered.map((project, index) => {
         const info = parseTitle(project.name);
         const finished = finishedSet.has(project.name);
-        const open = only || (index === 0 && !finished);   // the live job you came for
+        const approved = stageOf(project.name) === "approved";
+        const open = only || (index === openIndex && !finished);   // the live job you came for
         return `
-        <section class="project ${open ? "is-open" : ""} ${finished ? "is-finished" : ""}" data-project="${esc(project.name)}">
+        <section class="project ${open ? "is-open" : ""} ${finished ? "is-finished" : ""} ${approved && !finished ? "is-approved" : ""}" data-project="${esc(project.name)}">
           ${only ? "" : `
             <div class="project-head-row">
               <button class="project-head" type="button" data-toggle aria-expanded="${open}">
                 <span class="project-chevron" aria-hidden="true">${svg("chevron")}</span>
-                ${info.code ? `<span class="tag ${finished ? "tag--quiet" : "tag--code"}">${esc(info.code)}</span>` : ""}
+                ${finished ? (info.code ? `<span class="tag tag--quiet">${esc(info.code)}</span>` : "") : stageBadge(info.code, stageOf(project.name))}
                 <span class="project-name">${esc(info.title)}</span>
                 ${finished ? `<span class="tag tag--quiet tag--mini">Finished</span>` : ""}
                 <span class="project-count">${svg("film")}${project.videos.length}</span>
@@ -613,6 +621,8 @@ async function gatherHome() {
     job.cuts.sort((a, b) => a.title.rank - b.title.rank || a.title.number - b.title.number);
     job.cover = job.cuts[0];
     job.waiting = job.openNotes > 0 || Boolean(job.handedAt);
+    job.stage = job.openNotes ? "notes" : job.approved === job.cuts.length ? "approved" : "review";
+    stages.set(stageKey(job.folder, job.name), job.stage);
   }
 
   return { spaces, cuts, jobs: [...jobs.values()], summary, finished };
@@ -650,7 +660,7 @@ async function renderHome() {
       </span>
       <span class="job-body">
         <span class="job-title">
-          ${item.code ? `<span class="tag tag--code tag--mini">${esc(item.code)}</span>` : ""}
+          ${stageBadge(item.code, item.stage, { mini: true })}
           <strong>${esc(item.title)}</strong>
         </span>
         <span class="job-client">${avatar(item.client, { src: faceOf(item.folder) })}${esc(item.client)}</span>

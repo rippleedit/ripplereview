@@ -67,8 +67,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           ${cut.vsl
             /* VSL: "Main VSL [VSL] [ROUGH]" - the project is only ever "VSL", so the piece is the title. */
             ? `<h1 class="review-title">${esc(cut.label)}</h1>
-               <span class="tag tag--vsl">VSL</span>
-               ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough</span>` : ""}`
+               ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough-cut</span>` : ""}`
             : `<h1 class="review-title">${esc(projectName.title)}</h1>
                <span class="tag tag--cut">${esc(cut.label)}</span>`}
           <nav class="versions" aria-label="Versions">

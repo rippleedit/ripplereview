@@ -1355,3 +1355,16 @@ body { overflow: hidden; }
 
 /* When the current filter no longer holds it, it leaves rather than blinks out. */
 .note.is-leaving { opacity: 0; transform: translateX(12px); transition: opacity 260ms ease, transform 260ms var(--ease-out); }
+
+/* Project stage, carried by the job-code badge itself. */
+.tag--stage { gap: 0.3rem; }
+.tag--stage .icon { width: 0.8em; height: 0.8em; stroke-width: 2.6; }
+.tag--stage b { margin-left: 0.05rem; padding-left: 0.3rem; border-left: 1px solid currentColor; font-weight: 500; opacity: 0.9; }
+.tag--stage-review { border: 1px solid rgba(255, 61, 23, 0.55); background: rgba(255, 61, 23, 0.12); color: var(--signal); }
+.tag--stage-review i { flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.tag--stage-notes { border: 1px solid rgba(75, 179, 253, 0.5); background: rgba(75, 179, 253, 0.12); color: #6cc3ff; }
+.tag--stage-approved { border: 1px solid rgba(62, 207, 166, 0.3); background: rgba(62, 207, 166, 0.07); color: rgba(86, 220, 180, 0.75); }
+
+/* A fully approved project steps back in the list. */
+.project.is-approved .project-head { opacity: 0.72; }
+.project.is-approved .project-name { color: var(--white-52); }

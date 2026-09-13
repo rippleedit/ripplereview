@@ -348,3 +348,24 @@ export function byJobNumber(a, b) {
   };
   return number(b.name) - number(a.name) || b.modified.localeCompare(a.modified);
 }
+
+// A project's stage, read from the latest version of each cut in it. Notes
+// open anywhere wins; then "every cut approved"; anything else is out for review.
+export function projectStage(latestIds, { comments, approvals }) {
+  if (!latestIds.length) return "empty";
+  const ids = new Set(latestIds);
+  if (comments.some((c) => ids.has(c.file_id) && !c.parent_id && !c.done)) return "notes";
+  const approved = new Set(approvals.map((a) => a.file_id));
+  return latestIds.every((id) => approved.has(id)) ? "approved" : "review";
+}
+
+// The job code carries the stage: orange with a dot while it's out for review,
+// blue with "Notes" while there's work to do, muted green with a tick once done.
+export function stageBadge(code, stage, { mini = false } = {}) {
+  if (!code) return "";
+  const size = mini ? " tag--mini" : "";
+  if (stage === "approved") return `<span class="tag tag--stage tag--stage-approved${size}" title="Every cut approved">${svg("check")}${esc(code)}</span>`;
+  if (stage === "notes") return `<span class="tag tag--stage tag--stage-notes${size}" title="Open notes to work through">${esc(code)}<b>Notes</b></span>`;
+  if (stage === "review") return `<span class="tag tag--stage tag--stage-review${size}" title="Out for review"><i></i>${esc(code)}</span>`;
+  return `<span class="tag tag--quiet${size}">${esc(code)}</span>`;
+}
