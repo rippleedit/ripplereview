@@ -71,6 +71,15 @@ async function realApi() {
     async deleteComment(id) {
       check(await sb.from("comments").delete().eq("id", id));
     },
+    // Reactions: one emoji per person per note. `emoji` null takes yours back.
+    async reactions(fileId) {
+      return check(await sb.from("reactions").select("comment_id, user_id, emoji").eq("file_id", fileId).order("created_at"));
+    },
+    async react(commentId, emoji) {
+      const { data } = await sb.auth.getSession();
+      check(await sb.from("reactions").delete().eq("comment_id", commentId).eq("user_id", data.session?.user.id));
+      if (emoji) check(await sb.from("reactions").insert({ comment_id: commentId, emoji }));
+    },
     async approval(fileId) {
       return check(await sb.from("approvals").select("*").eq("file_id", fileId).maybeSingle());
     },

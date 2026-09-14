@@ -100,6 +100,22 @@ export const icon = {
   alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
 };
 
+// Reactions on notes, drawn with Apple's emoji artwork (emoji-datasource-apple)
+// so they look the same on every device. The key is what the database stores.
+const EMOJI = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@16.0.0/img/apple/64/";
+export const REACTIONS = [
+  { key: "heart", char: "❤️", code: "2764-fe0f", label: "Love" },
+  { key: "thumbs", char: "👍", code: "1f44d", label: "Thumbs up" },
+  { key: "fire", char: "🔥", code: "1f525", label: "Fire" },
+  { key: "laugh", char: "😂", code: "1f602", label: "Laughing" },
+  { key: "wow", char: "😮", code: "1f62e", label: "Wow" },
+  { key: "pray", char: "🙏", code: "1f64f", label: "Thank you" },
+];
+
+export function emojiImg(reaction) {
+  return `<img class="emoji" src="${EMOJI}${reaction.code}.png" alt="${reaction.char}" width="64" height="64" draggable="false">`;
+}
+
 export function svg(name, className = "") {
   return `<svg class="icon ${className}" viewBox="0 0 24 24" aria-hidden="true">${icon[name]}</svg>`;
 }

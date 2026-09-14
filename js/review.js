@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, colourFor, dialog, esc, href, parseTitle, parseVideo, relTime, spinner, svg, toast } from "./ui.js";
+import { avatar, dialog, emojiImg, esc, href, parseTitle, parseVideo, REACTIONS, relTime, spinner, svg, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -58,6 +58,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     drawMode: false,
     replyingTo: null,
     editingId: null,            // the note or reply being reworded
+    reactions: [],              // { comment_id, user_id, emoji }: one per person per note
   };
 
   view.innerHTML = `
@@ -389,7 +390,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
     const svg = marks.length || state.draftStrokes.length ? `
       <svg class="draw-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
-        ${marks.map((c) => `<path d="${strokesPath(c.drawing)}" stroke="${c.author_is_admin ? "var(--signal)" : colourFor(c.author_name)}" class="${c.done ? "is-done" : ""}"/>`).join("")}
+        ${/* Every drawing lands in signal orange, whoever drew it: it has to be seen on any picture. */
+          marks.map((c) => `<path d="${strokesPath(c.drawing)}" stroke="var(--signal)" class="${c.done ? "is-done" : ""}"/>`).join("")}
         ${state.draftStrokes.length ? `<path d="${strokesPath(state.draftStrokes)}" stroke="var(--signal)" class="is-draft"/>` : ""}
       </svg>` : "";
 
@@ -553,6 +555,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
   // Rewording is the author's alone, the studio included; the database holds to it too.
   const own = (c) => c.author_id === profile.id;
+  const personFor = (id) => {
+    const person = state.people.get(id);
+    const name = person?.name?.trim() || (id === profile.id ? profile.name : "") || "Someone";
+    return { name, avatar: person?.avatar ?? (id === profile.id ? profile.avatar : null), studio: person?.is_admin ?? false };
+  };
 
   function renderCounts() {
     const all = numbered();
@@ -579,10 +586,32 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         </div>
       </form>` : `<p class="note-body">${esc(c.body)}</p>`;
 
+    // Reactions sit under the words: each emoji with the faces of who picked it.
+    const myReaction = (c) => state.reactions.find((r) => r.comment_id === c.id && r.user_id === profile.id)?.emoji;
+    const reactionsOf = (c) => {
+      const rows = state.reactions.filter((r) => r.comment_id === c.id);
+      const chips = REACTIONS.map((kind) => {
+        const people = rows.filter((r) => r.emoji === kind.key).map((r) => personFor(r.user_id));
+        if (!people.length) return "";
+        const names = people.map((p) => p.name).join(", ");
+        return `<button type="button" class="reaction ${myReaction(c) === kind.key ? "is-mine" : ""}" data-react="${kind.key}" data-for="${c.id}" title="${esc(names)}" aria-label="${esc(`${kind.label}: ${names}`)}">
+          ${emojiImg(kind)}<span class="reaction-faces">${people.map((p) => avatar(p.name, { studio: p.studio, src: p.avatar, size: "xs" })).join("")}</span>
+        </button>`;
+      }).join("");
+      return chips ? `<div class="reactions">${chips}</div>` : "";
+    };
+    // The row of emojis that shows while hovering a note.
+    const picker = (c) => `
+      <span class="react-bar" role="group" aria-label="React">${REACTIONS.map((kind) => `
+        <button type="button" class="react-pick ${myReaction(c) === kind.key ? "is-mine" : ""}" data-react="${kind.key}" data-for="${c.id}" title="${kind.label}" aria-label="React with ${kind.label}" aria-pressed="${myReaction(c) === kind.key}">${emojiImg(kind)}</button>`).join("")}
+      </span>`;
+
     const reply = (r) => `
       <li class="reply">
         ${text(r)}
+        ${reactionsOf(r)}
         <p class="note-by">${authorLabel(r)}<span class="note-when">${relTime(r.created_at)}</span>
+          ${picker(r)}
           ${own(r) ? `<button type="button" class="icon-button icon-button--tiny" data-edit="${r.id}" title="Edit" aria-label="Edit reply">${svg("edit")}</button>` : ""}
           ${mine(r) ? `<button type="button" class="icon-button icon-button--tiny" data-delete="${r.id}" title="Delete" aria-label="Delete reply">${svg("trash")}</button>` : ""}</p>
       </li>`;
@@ -605,7 +634,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             <button type="button" class="note-check" data-done aria-pressed="${c.done}" title="${c.done ? "Mark as open" : "Mark as done"}" aria-label="${c.done ? "Mark as open" : "Mark as done"}">${svg("check")}</button>
           </div>
           ${text(c)}
-          <p class="note-by">${authorLabel(c)}<span class="note-when">${relTime(c.created_at)}</span></p>
+          ${reactionsOf(c)}
+          <p class="note-by">${authorLabel(c)}<span class="note-when">${relTime(c.created_at)}</span>${picker(c)}</p>
           ${replies.length ? `<ul class="replies">${replies.map(reply).join("")}</ul>` : ""}
           ${state.replyingTo === c.id ? `
             <form class="reply-form" data-reply-form>
@@ -633,6 +663,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     const item = event.target.closest("[data-note]");
     if (!item) return;
     const id = item.dataset.note;
+
+    const react = event.target.closest("[data-react]");
+    if (react) return toggleReaction(react.dataset.for, react.dataset.react);
 
     const edit = event.target.closest("[data-edit]");
     if (edit) {
@@ -704,6 +737,24 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (event.target.closest("[data-reply-form], [data-edit-form]")) return;
     activate(id, false);
   });
+
+  // Same emoji again takes it back; another one swaps it. Shown straight away,
+  // put back if the database says no.
+  async function toggleReaction(commentId, emoji) {
+    const before = state.reactions;
+    const mineNow = before.find((r) => r.comment_id === commentId && r.user_id === profile.id);
+    const next = mineNow?.emoji === emoji ? null : emoji;
+    state.reactions = before.filter((r) => r !== mineNow);
+    if (next) state.reactions = [...state.reactions, { comment_id: commentId, user_id: profile.id, emoji: next }];
+    renderNotes();
+    try {
+      await api.react(commentId, next);
+    } catch (error) {
+      state.reactions = before;
+      renderNotes();
+      toast(error.message);
+    }
+  }
 
   async function saveEdit(form) {
     const note = state.comments.find((c) => c.id === form.dataset.id);
@@ -880,11 +931,14 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   async function refresh() {
     if (document.hidden || view.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA") return;
     try {
-      const [comments, approval] = await Promise.all([api.comments(fileId), api.approval(fileId)]);
-      const changed = JSON.stringify(comments) !== JSON.stringify(state.comments) || JSON.stringify(approval) !== JSON.stringify(state.approval);
+      const [comments, approval, reactions] = await Promise.all([api.comments(fileId), api.approval(fileId), api.reactions(fileId).catch(() => state.reactions)]);
+      const reactionKey = (rows) => rows.map((r) => `${r.comment_id}:${r.user_id}:${r.emoji}`).sort().join();
+      const changed = JSON.stringify(comments) !== JSON.stringify(state.comments) || JSON.stringify(approval) !== JSON.stringify(state.approval)
+        || reactionKey(reactions) !== reactionKey(state.reactions);
       if (!changed) return;
       state.comments = comments;
       state.approval = approval;
+      state.reactions = reactions;
       renderAll();
       renderApproval();
     } catch {}
@@ -907,12 +961,15 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   renderHandover();
   loadSource();
   try {
-    const [comments, approval, people, submissions] = await Promise.all([
+    const [comments, approval, people, submissions, reactions] = await Promise.all([
       api.comments(fileId),
       api.approval(fileId),
       api.people(library.client).catch(() => []),
       api.submissions([fileId]).catch(() => []),
+      // Before update-7 is run there is no reactions table: notes still load.
+      api.reactions(fileId).catch(() => []),
     ]);
+    state.reactions = reactions;
     state.comments = comments;
     state.approval = approval;
     state.people = new Map(people.map((person) => [person.id, person]));

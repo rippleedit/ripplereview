@@ -77,6 +77,10 @@ const SEED = {
   approvals: [
     { file_id: "id:demo-ss1", client_folder: "nile waves", approved_by: "u-client", approved_name: "Nile Waves", approved_at: day(8) },
   ],
+  reactions: [
+    { comment_id: "c4", user_id: "u-admin", emoji: "heart" },
+    { comment_id: "c2", user_id: "u-client", emoji: "thumbs" },
+  ],
 };
 
 const STORE = "ripplereview-demo";
@@ -87,6 +91,7 @@ function load() {
 
 export function demoApi() {
   let state = load();
+  state.reactions ??= [];              // sample data saved before reactions existed
   let me = null;
   try { me = PEOPLE[sessionStorage.getItem(`${STORE}-who`)] ?? null; } catch {}
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
@@ -141,6 +146,12 @@ export function demoApi() {
     },
     async deleteComment(id) {
       state.comments = state.comments.filter((c) => c.id !== id && c.parent_id !== id);
+      save();
+    },
+    reactions: (fileId) => wait(state.reactions.filter((r) => state.comments.some((c) => c.id === r.comment_id && c.file_id === fileId))),
+    async react(commentId, emoji) {
+      state.reactions = state.reactions.filter((r) => !(r.comment_id === commentId && r.user_id === me.id));
+      if (emoji) state.reactions.push({ comment_id: commentId, user_id: me.id, emoji });
       save();
     },
     approval: (fileId) => wait(state.approvals.find((a) => a.file_id === fileId) ?? null),
