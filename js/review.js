@@ -57,6 +57,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     draftStrokes: [],           // freehand marks on the frame, 0..1 coordinates
     drawMode: false,
     replyingTo: null,
+    editingId: null,            // the note or reply being reworded
   };
 
   view.innerHTML = `
@@ -69,7 +70,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             ? `<h1 class="review-title">${esc(cut.label)}</h1>
                ${cut.rough ? `<span class="tag tag--rough" title="Polished rough cut: no motion graphics, music or sound design yet">Rough-cut</span>` : ""}`
             : `<h1 class="review-title">${esc(projectName.title)}</h1>
-               <span class="tag tag--cut">${esc(cut.label)}</span>`}
+               ${/* No cut marker in the name: the label is just the title again, so say nothing. */
+                 cut.label.toLowerCase() !== projectName.title.toLowerCase() ? `<span class="tag tag--cut">${esc(cut.label)}</span>` : ""}`}
           <nav class="versions" aria-label="Versions">
             ${video.versions.length > 1
               ? video.versions.map((v) => `<a href="${href.video(library.client, v.id)}" class="${v.id === fileId ? "is-active" : ""}" ${v.id === fileId ? 'aria-current="page"' : ""}>v${v.label}</a>`).join("")
@@ -549,6 +551,8 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     </span>`;
   };
   const mine = (c) => c.author_id === profile.id || profile.is_admin;
+  // Rewording is the author's alone, the studio included; the database holds to it too.
+  const own = (c) => c.author_id === profile.id;
 
   function renderCounts() {
     const all = numbered();
@@ -563,10 +567,23 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     renderCounts();
     const shown = all.filter((c) => state.filter === "all" || (state.filter === "done" ? c.done : !c.done));
 
+    // The note being reworded swaps its text for a box holding the same words.
+    // What was typed survives a redraw (a poll, a tick elsewhere).
+    const draft = view.querySelector("[data-edit-body]")?.value;
+    const text = (c) => state.editingId === c.id ? `
+      <form class="reply-form" data-edit-form data-id="${c.id}">
+        <textarea rows="3" data-edit-body>${esc(draft ?? c.body)}</textarea>
+        <div class="reply-form-foot">
+          <button type="button" class="text-button text-button--small" data-edit-cancel>Cancel</button>
+          <button type="submit" class="button button--solid button--compact">Save</button>
+        </div>
+      </form>` : `<p class="note-body">${esc(c.body)}</p>`;
+
     const reply = (r) => `
       <li class="reply">
-        <p class="note-body">${esc(r.body)}</p>
+        ${text(r)}
         <p class="note-by">${authorLabel(r)}<span class="note-when">${relTime(r.created_at)}</span>
+          ${own(r) ? `<button type="button" class="icon-button icon-button--tiny" data-edit="${r.id}" title="Edit" aria-label="Edit reply">${svg("edit")}</button>` : ""}
           ${mine(r) ? `<button type="button" class="icon-button icon-button--tiny" data-delete="${r.id}" title="Delete" aria-label="Delete reply">${svg("trash")}</button>` : ""}</p>
       </li>`;
 
@@ -582,11 +599,12 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
             ${c.drawing?.length ? `<span class="note-mark" title="Has a drawing">${svg("draw")}</span>` : ""}
             <span class="note-tools">
               <button type="button" class="icon-button icon-button--tiny" data-reply title="Reply" aria-label="Reply">${svg("reply")}</button>
+              ${own(c) ? `<button type="button" class="icon-button icon-button--tiny" data-edit="${c.id}" title="Edit" aria-label="Edit note">${svg("edit")}</button>` : ""}
               ${mine(c) ? `<button type="button" class="icon-button icon-button--tiny" data-delete="${c.id}" title="Delete" aria-label="Delete note">${svg("trash")}</button>` : ""}
             </span>
             <button type="button" class="note-check" data-done aria-pressed="${c.done}" title="${c.done ? "Mark as open" : "Mark as done"}" aria-label="${c.done ? "Mark as open" : "Mark as done"}">${svg("check")}</button>
           </div>
-          <p class="note-body">${esc(c.body)}</p>
+          ${text(c)}
           <p class="note-by">${authorLabel(c)}<span class="note-when">${relTime(c.created_at)}</span></p>
           ${replies.length ? `<ul class="replies">${replies.map(reply).join("")}</ul>` : ""}
           ${state.replyingTo === c.id ? `
@@ -602,6 +620,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
 
     const replyBox = view.querySelector("[data-reply-body]");
     if (replyBox && document.activeElement?.tagName !== "TEXTAREA") replyBox.focus();
+    const editBox = view.querySelector("[data-edit-body]");
+    if (editBox && document.activeElement !== editBox) {
+      editBox.focus();
+      editBox.setSelectionRange(editBox.value.length, editBox.value.length);
+    }
   }
 
   const list = $("[data-notes]");
@@ -611,7 +634,18 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     if (!item) return;
     const id = item.dataset.note;
 
-
+    const edit = event.target.closest("[data-edit]");
+    if (edit) {
+      state.editingId = edit.dataset.edit;
+      state.replyingTo = null;
+      renderNotes();
+      return;
+    }
+    if (event.target.closest("[data-edit-cancel]")) {
+      state.editingId = null;
+      renderNotes();
+      return;
+    }
 
     const del = event.target.closest("[data-delete]");
     if (del) {
@@ -627,6 +661,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     }
     if (event.target.closest("[data-reply]")) {
       state.replyingTo = id;
+      state.editingId = null;
       renderNotes();
       return;
     }
@@ -666,12 +701,36 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       }
       return;
     }
-    if (event.target.closest("[data-reply-form]")) return;
+    if (event.target.closest("[data-reply-form], [data-edit-form]")) return;
     activate(id, false);
   });
 
+  async function saveEdit(form) {
+    const note = state.comments.find((c) => c.id === form.dataset.id);
+    const text = form.querySelector("[data-edit-body]").value.trim();
+    if (!note || !text) return;
+    if (text === note.body) {
+      state.editingId = null;
+      return renderNotes();
+    }
+    const button = form.querySelector("[type=submit]");
+    button.disabled = true;
+    try {
+      const row = await api.updateComment(note.id, { body: text });
+      note.body = row.body;
+      state.editingId = null;
+      renderAll();
+      toast("Note updated");
+    } catch (error) {
+      toast(error.message);
+      button.disabled = false;
+    }
+  }
+
   list.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const editForm = event.target.closest("[data-edit-form]");
+    if (editForm) return saveEdit(editForm);
     const form = event.target.closest("[data-reply-form]");
     const text = form.querySelector("[data-reply-body]").value.trim();
     if (!text) return;
@@ -684,9 +743,13 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   });
 
   list.addEventListener("keydown", (event) => {
-    if (event.target.matches("[data-reply-body]") && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    if (!event.target.matches("[data-reply-body], [data-edit-body]")) return;
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       event.target.closest("form").requestSubmit();
+    } else if (event.key === "Escape" && event.target.matches("[data-edit-body]")) {
+      state.editingId = null;
+      renderNotes();
     }
   });
 

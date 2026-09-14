@@ -1035,7 +1035,9 @@ body { overflow: hidden; }
 .note-by { display: flex; align-items: center; gap: 0.4rem; color: var(--white-52); font-size: 0.75rem; }
 .note-when { color: var(--white-28); }
 .note-by .icon-button--tiny { margin-left: auto; opacity: 0; transition: opacity 160ms ease; }
-.reply:hover .icon-button--tiny { opacity: 1; }
+.note-by .icon-button--tiny + .icon-button--tiny { margin-left: 0; }
+.reply:hover .icon-button--tiny, .reply:focus-within .icon-button--tiny { opacity: 1; }
+@media (hover: none) { .note-by .icon-button--tiny { opacity: 1; } }
 .note-author { color: var(--white-76); font-weight: 600; }
 .note-author--studio { color: var(--signal); }
 .note-org { color: var(--white-28); font-size: 0.7rem; }
