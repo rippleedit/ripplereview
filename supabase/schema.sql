@@ -143,11 +143,11 @@ alter table public.approvals enable row level security;
 
 -- Profiles are read-only from the app. Logins are managed by the admin page,
 -- which goes through the server function with full rights. Everyone in a space
--- can see the names and pictures of the people they share it with; the column
--- grant below keeps email addresses out of it.
+-- can see the names and pictures of the people they share it with, and the
+-- studio sees everyone; the column grant below keeps email addresses out of it.
 create policy "read people in my space" on public.profiles
   for select to authenticated
-  using (id = auth.uid() or is_admin or lower(client_folder) = public.my_folder());
+  using (id = auth.uid() or is_admin or public.is_admin() or lower(client_folder) = public.my_folder());
 
 create policy "read notes in my space" on public.comments
   for select to authenticated using (public.can_see(client_folder));
