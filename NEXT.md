@@ -86,9 +86,12 @@ trying to tick notes off on the train.
   on a fresh project; they're safe to re-run.
 - **Client pictures** waiting in `local/` (gitignored): nile-waves, antar, sim.
   Add them with Clients → gear → Add picture.
-- **Proxy exports:** H.264 .mp4, 1080p, ~6 Mbps, keyframe every 1 second, AAC
-  256 kbps. The keyframe interval is what makes scrubbing feel precise.
-- **Naming:** `_PREVIEW_<JOB>_<CUT>_v1.mp4`, e.g. `_PREVIEW_NIL-10_LF_v1.mp4`.
+- **Proxy exports** (`tools/proxy.mjs`): H.264 .mp4, 1080p, 3 Mbps (peaks
+  4.5), keyframe every 1 second, AAC 256 kbps. The keyframe interval is what
+  makes scrubbing feel precise.
+- **Naming:** `_PREVIEW_<JOB>_<Title>_<CUT>_v<N>.mp4`, e.g.
+  `_PREVIEW_NIL-11_Webinar-Funnel-Breakdown_LF_v2.mp4`, inside
+  `<Client>/<JOB> - <Project>/`. VSL pieces: `_PREVIEW_ANT-23_VSL_Main-VSL_ROUGH_v1.mp4`.
   Markers understood: LF, SF-01, TR, TEASER, REEL, PROMO, BTS; platforms YT,
   IG, TT, FB, LI, X.
 
