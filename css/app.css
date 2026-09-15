@@ -1103,6 +1103,14 @@ body { overflow: hidden; }
 /* Team members watch and download finished cuts: the player, no notes panel. */
 .review--watch .notes { display: none; }
 .review--watch .review-layout { grid-template-columns: minmax(0, 1fr); }
+/* With no notes beside it the column is wide: the player keeps to the left, as it does for everyone else. */
+.review--watch .player-shell { margin-inline: 0; }
+/* Undo sits inside the approved pill, after who approved it. */
+.approved .approved-undo { width: 1.7rem; height: 1.7rem; margin-left: 0.2rem; border-radius: 50%; }
+.approved:has(.approved-undo) { padding-right: 0.25rem; }
+/* While the master's download link is being made. */
+.master-pending { gap: 0.55rem; border-color: var(--white-14); color: var(--white-52); cursor: default; }
+.master-pending .spin { width: 0.95rem; height: 0.95rem; }
 .approval { flex-wrap: wrap; }
 .approval a.button { text-decoration: none; }
 .client-card-role { width: fit-content; }

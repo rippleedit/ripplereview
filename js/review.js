@@ -831,8 +831,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         <span class="approved" title="Approved ${esc(new Date(state.approval.approved_at).toLocaleString())}">
           <span class="approved-mark" aria-hidden="true">${svg("check")}</span>
           <span><strong>v${version.label} approved</strong><small>${esc(state.approval.approved_name)} · ${relTime(state.approval.approved_at)}</small></span>
+          ${member ? "" : `<button type="button" class="icon-button approved-undo" data-unapprove title="Undo approval" aria-label="Undo approval">${svg("undo")}</button>`}
         </span>
-        ${member ? "" : `<button type="button" class="icon-button" data-unapprove title="Undo approval" aria-label="Undo approval">${svg("undo")}</button>`}
+        ${state.masterLoading ? `
+          <span class="button button--compact master-pending" role="status">${spinner()}<span>Preparing master download…</span></span>` : ""}
         ${state.master ? `
           <a class="button button--solid button--compact" data-master href="${esc(state.master.url)}" target="_blank" rel="noopener" download="${esc(state.master.name)}"
             title="${esc([state.master.name, fileSize(state.master.size)].filter(Boolean).join(" · "))}">
@@ -851,11 +853,15 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       state.master = null;
       return renderApproval();
     }
+    // Finding the master and making its link takes a moment: say so meanwhile.
+    state.masterLoading = !state.master;
+    renderApproval();
     try {
       state.master = { ...(await api.master(fileId)), at: Date.now() };
     } catch {
       state.master = null;
     }
+    state.masterLoading = false;
     renderApproval();
   }
 
