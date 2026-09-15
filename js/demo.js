@@ -6,7 +6,8 @@ const CLIPS = [`${SITE}/main-film.mp4`, `${SITE}/hero-3.mp4`, `${SITE}/backgroun
 
 const PEOPLE = {
   admin: { id: "u-admin", name: "Razz", email: "studio@ripple-edit.com", client_folder: null, is_admin: true },
-  client: { id: "u-client", name: "Nile Waves", email: "nile-waves@clients.ripple-edit.com", client_folder: "Nile Waves", is_admin: false },
+  client: { id: "u-client", name: "Nile Waves", email: "nile-waves@clients.ripple-edit.com", client_folder: "Nile Waves", is_admin: false, team_role: "leader" },
+  member: { id: "u-member", name: "Thumbnails", email: "nile-waves-thumbnails@clients.ripple-edit.com", client_folder: "Nile Waves", is_admin: false, team_role: "member" },
 };
 
 const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
@@ -103,7 +104,7 @@ export function demoApi() {
 
     session: () => wait(me),
     async signIn(email) {
-      const who = /client/i.test(email) ? "client" : "admin";
+      const who = /member/i.test(email) ? "member" : /client/i.test(email) ? "client" : "admin";
       me = PEOPLE[who];
       try { sessionStorage.setItem(`${STORE}-who`, who); } catch {}
       return wait(me);
@@ -116,7 +117,23 @@ export function demoApi() {
     async library(folder) {
       const key = (me.is_admin ? folder : me.client_folder).toLowerCase();
       if (!LIBRARY[key]) throw new Error("Not found in Dropbox.");
-      return wait(structuredClone(LIBRARY[key]));
+      const data = structuredClone(LIBRARY[key]);
+      // A team member only sees approved versions, as the server does.
+      if (me.team_role === "member") {
+        const approved = new Set(state.approvals.map((a) => a.file_id));
+        data.projects = data.projects
+          .map((p) => ({ ...p, videos: p.videos.map((v) => ({ ...v, versions: v.versions.filter((x) => approved.has(x.id)) })).filter((v) => v.versions.length) }))
+          .filter((p) => p.videos.length);
+      }
+      return wait(data);
+    },
+    async master(fileId) {
+      if (!me.is_admin && !state.approvals.some((a) => a.file_id === fileId)) throw new Error("The master unlocks once this cut is approved.");
+      const found = allFiles().find((f) => f.id === fileId);
+      return wait({
+        name: found.name.replace(/^_preview_/i, ""), size: 2485400331, url: CLIPS[found.clip ?? 0],
+        specs: { width: 3840, height: 2160, fps: 23.976, bitrate: 49983959 },
+      });
     },
     link: (fileId) => wait(CLIPS[allFiles().find((f) => f.id === fileId)?.clip ?? 0]),
     // The short gets a vertical still, the rest landscape ones.
@@ -126,7 +143,8 @@ export function demoApi() {
       comments: state.comments.filter((c) => ids.includes(c.file_id)),
       approvals: state.approvals.filter((a) => ids.includes(a.file_id)),
     }),
-    comments: (fileId) => wait(state.comments.filter((c) => c.file_id === fileId)),
+    // A team member reads no notes (database update 8).
+    comments: (fileId) => wait(me.team_role === "member" ? [] : state.comments.filter((c) => c.file_id === fileId)),
     async addComment(comment) {
       const row = {
         pin_x: null, pin_y: null, time_sec: null, parent_id: null, ...comment,
@@ -193,7 +211,10 @@ export function demoApi() {
     clients: () => wait({
       folders: [
         { folder: "Kxng Beats", logins: [] },
-        { folder: "Nile Waves", logins: [{ id: "u-client", email: PEOPLE.client.email, name: "Nile Waves", client_folder: "Nile Waves", last_seen: new Date(Date.now() - 90000).toISOString() }] },
+        { folder: "Nile Waves", logins: [
+          { id: "u-client", email: PEOPLE.client.email, name: "Nile Waves", client_folder: "Nile Waves", team_role: "leader", last_seen: new Date(Date.now() - 90000).toISOString() },
+          { id: "u-member", email: PEOPLE.member.email, name: "Thumbnails", client_folder: "Nile Waves", team_role: "member", last_seen: null },
+        ] },
       ],
       orphans: [],
     }),

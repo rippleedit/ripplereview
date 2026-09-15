@@ -18,6 +18,9 @@ let clients = null;                 // admin: the client folders, once fetched
 const libraries = new Map();        // folder → { data, at }
 const stages = new Map();           // "folder/project" → review | notes | approved | empty
 const stageKey = (folder, project) => `${folder.toLowerCase()}/${project}`;
+// A client space's own login (the team leader) and its team members (update-8).
+const isMemberLogin = (login) => login?.team_role === "member";
+const leaderOf = (logins = []) => logins.find((login) => !isMemberLogin(login)) ?? logins[0];
 
 // Routes: #/                        admin: clients · client: their space
 //         #/c/<folder>              one client's space
@@ -136,7 +139,7 @@ async function renderSidebar(r) {
           const active = folder?.toLowerCase() === f.folder.toLowerCase();
           return `
             <a class="side-link side-link--client ${active ? "is-active" : ""}" href="${href.space(f.folder)}">
-              ${avatar(f.folder, { src: f.logins.find((l) => l.avatar)?.avatar })}
+              ${avatar(f.folder, { src: leaderOf(f.logins)?.avatar })}
               <span class="side-link-name">${esc(f.folder)}</span>
             </a>
             ${active ? `<div class="side-group side-group--nested">${projectRows(f.folder) || `<p class="side-empty">No projects yet</p>`}</div>` : ""}`;
@@ -228,7 +231,7 @@ function renderSignIn() {
           <p class="form-status" role="status" data-status></p>
         </form>
         <p class="signin-foot">${api.demo
-          ? "Demo mode · any email signs in. Use one containing “client” for the client's view."
+          ? "Demo mode · any email signs in. Use one containing “client” for the client's view, “member” for a team member's."
           : "Lost your login? Message RippleEdit and we'll send you a new one."}</p>
       </div>
     </div>`;
@@ -336,7 +339,7 @@ async function renderSpace(folder, only = null) {
   const firstLive = ordered.findIndex((p) => !finishedSet.has(p.name) && stageOf(p.name) !== "approved");
   const openIndex = firstLive === -1 ? 0 : firstLive;
   const face = profile.is_admin
-    ? (clients?.folders.find((f) => f.folder.toLowerCase() === library.client.toLowerCase())?.logins.find((l) => l.avatar)?.avatar)
+    ? leaderOf(clients?.folders.find((f) => f.folder.toLowerCase() === library.client.toLowerCase())?.logins)?.avatar
     : profile.avatar;
 
   view.innerHTML = `
@@ -381,7 +384,7 @@ async function renderSpace(folder, only = null) {
           <p>Nothing here yet.</p>
           <p class="empty-sub">${profile.is_admin
             ? `Drop a video into Dropbox/Apps/RippleReview/${esc(library.client)}/&lt;Project&gt;/ and hit refresh.`
-            : "We'll let you know when your first cut is ready."}</p>
+            : profile.team_role === "member" ? "Finished cuts show up here once they're approved." : "We'll let you know when your first cut is ready."}</p>
         </div>`}
     </section>`;
 
@@ -646,7 +649,7 @@ async function renderHome() {
 
   const openNotes = data.summary.comments.filter((c) => !c.parent_id && !c.done).length;
   const approved = data.cuts.filter((cut) => cut.status.kind === "approved").length;
-  const faceOf = (folder) => data.spaces.find((s) => s.folder === folder)?.logins.find((l) => l.avatar)?.avatar;
+  const faceOf = (folder) => leaderOf(data.spaces.find((s) => s.folder === folder)?.logins)?.avatar;
 
   const stat = (value, label, lead = false) => `
     <div class="stat ${lead && value ? "is-lead" : ""}">
@@ -708,7 +711,7 @@ async function renderHome() {
         <div class="client-grid">
           ${data.spaces.map((space) => {
             const mine = live.filter((item) => item.folder === space.folder);
-            const login = space.logins[0];
+            const login = leaderOf(space.logins);
             const latest = mine.map((item) => item.modified).sort().at(-1);
             const waiting = mine.filter((item) => item.waiting).length;
             return `
@@ -844,16 +847,77 @@ async function addClientDialog() {
   await inviteDialog(created.folder, { email: created.email }, created.password);
 }
 
+// A team member: their own login in a client's space that only ever sees
+// approved cuts, to watch and download the master. The username starts with
+// the client's, e.g. sim-thumbnails.
+async function addMemberDialog(folder) {
+  let created = null;
+  await dialog({
+    title: `Add a team member to ${folder}`,
+    confirmLabel: "Create login",
+    body: `
+      <div class="form">
+        <label><span>Username</span><input name="username" value="${esc(slug(folder))}-" autocomplete="off" spellcheck="false" autocapitalize="off" required></label>
+        <label><span>Name (optional)</span><input name="display" placeholder="e.g. Thumbnails" maxlength="40" autocomplete="off"></label>
+        <label><span>Password</span>
+          <span class="input-with-button">
+            <input name="password" value="${generatePassword()}" minlength="8" autocomplete="off" required>
+            <button class="text-button" type="button" data-generate>New</button>
+          </span>
+        </label>
+      </div>
+      <p class="sheet-note">${svg("check")}<span>Sees only approved cuts in ${esc(folder)}: watches them and downloads the master. No notes, no approving.</span></p>
+      <p class="sheet-note" data-username>${svg("user")}<span>Pick a username after “${esc(slug(folder))}-”.</span></p>`,
+    onOpen: (el) => {
+      const form = el.querySelector("form");
+      const username = el.querySelector("[data-username] span");
+      el.querySelector("[data-generate]").addEventListener("click", () => { form.password.value = generatePassword(); });
+      form.username.addEventListener("input", () => {
+        const user = slug(form.username.value);
+        username.textContent = user ? `They sign in as “${user}”.` : "Pick a username.";
+      });
+      form.username.focus();
+      form.username.setSelectionRange(form.username.value.length, form.username.value.length);
+      form.addEventListener("submit", async (event) => {
+        if (event.submitter?.value !== "confirm") return;
+        event.preventDefault();
+        const user = slug(form.username.value);
+        if (!user || user === slug(folder) || form.password.value.length < 8) return toast("Pick a username for them, like sim-thumbnails");
+        const fields = { folder, name: form.display.value.trim() || user, email: loginId(user), password: form.password.value, role: "member" };
+        const button = event.submitter;
+        button.disabled = true;
+        button.textContent = "Creating…";
+        try {
+          await api.createClient(fields);
+          created = fields;
+          el.close();
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+          button.textContent = "Create login";
+        }
+      });
+    },
+  });
+  if (!created) return;
+  clients = null;
+  await renderClients();
+  await inviteDialog(folder, { email: created.email }, created.password);
+}
+
 async function editClientDialog(folder, login) {
   let fields = null;
+  // A team member keeps their leader's space: they get a name, not a folder.
+  const member = isMemberLogin(login);
+  const who = member ? (login.name || loginName(login.email)) : folder;
   await dialog({
-    title: `Edit ${folder}`,
+    title: `Edit ${who}`,
     confirmLabel: "Save changes",
     body: `
       <div class="profile-top">
-        <span data-avatar-slot>${avatar(folder, { size: "lg", src: login.avatar })}</span>
+        <span data-avatar-slot>${avatar(who, { size: "lg", src: login.avatar })}</span>
         <div class="profile-id">
-          <strong>${esc(folder)}</strong>
+          <strong>${esc(who)}</strong>
           <span>${esc(loginName(login.email))}</span>
           <span class="profile-pic-actions">
             <button class="button button--compact" type="button" data-pick>${svg("image")}<span data-pick-label>${login.avatar ? "Change picture" : "Add picture"}</span></button>
@@ -863,10 +927,14 @@ async function editClientDialog(folder, login) {
       </div>
       <input type="file" accept="image/*" hidden data-file>
       <div class="form">
-        <label><span>Client name</span><input name="folder" value="${esc(folder)}" autocomplete="off" required></label>
+        ${member
+          ? `<label><span>Name</span><input name="display" value="${esc(login.name ?? "")}" maxlength="40" autocomplete="off"></label>`
+          : `<label><span>Client name</span><input name="folder" value="${esc(folder)}" autocomplete="off" required></label>`}
         <label><span>Username</span><input name="username" value="${esc(loginName(login.email))}" autocomplete="off" spellcheck="false" required></label>
       </div>
-      <p class="sheet-note" data-note>${svg("folder")}<span>Renaming also renames their Dropbox folder. Their videos, notes and approvals move with it.</span></p>`,
+      <p class="sheet-note" data-note>${member
+        ? `${svg("users")}<span>Team member of ${esc(folder)}: sees only approved cuts. Their space is renamed from the team leader's login.</span>`
+        : `${svg("folder")}<span>Renaming also renames their Dropbox folder. Their videos, notes, approvals and team move with it.</span>`}</p>`,
     onOpen: (el) => {
       const form = el.querySelector("form");
       const file = el.querySelector("[data-file]");
@@ -875,20 +943,20 @@ async function editClientDialog(folder, login) {
       const pick = el.querySelector("[data-pick]");
       let picture;                                   // undefined = leave it alone
 
-      form.folder.focus();
+      (member ? form.display : form.folder).focus();
       pick.addEventListener("click", () => file.click());
       file.addEventListener("change", async () => {
         if (!file.files?.[0]) return;
         try {
           picture = await squareDataUrl(file.files[0]);
-          slot.innerHTML = avatar(folder, { size: "lg", src: picture });
+          slot.innerHTML = avatar(who, { size: "lg", src: picture });
           drop.hidden = false;
           el.querySelector("[data-pick-label]").textContent = "Change picture";
         } catch (error) { toast(error.message); }
       });
       drop.addEventListener("click", () => {
         picture = null;
-        slot.innerHTML = avatar(folder, { size: "lg" });
+        slot.innerHTML = avatar(who, { size: "lg" });
         drop.hidden = true;
         el.querySelector("[data-pick-label]").textContent = "Add picture";
       });
@@ -896,9 +964,11 @@ async function editClientDialog(folder, login) {
       form.addEventListener("submit", async (event) => {
         if (event.submitter?.value !== "confirm") return;
         event.preventDefault();
-        const next = { userId: login.id, folder: form.folder.value.trim(), name: form.folder.value.trim(), email: loginId(form.username.value) };
+        const next = member
+          ? { userId: login.id, name: form.display.value.trim() || slug(form.username.value), email: loginId(form.username.value) }
+          : { userId: login.id, folder: form.folder.value.trim(), name: form.folder.value.trim(), email: loginId(form.username.value) };
         if (picture !== undefined) next.avatar = picture;
-        if (!next.folder || !form.username.value.trim()) return;
+        if ((!member && !next.folder) || !form.username.value.trim()) return;
         const button = event.submitter;
         button.disabled = true;
         button.textContent = "Saving…";
@@ -943,15 +1013,18 @@ async function resetPasswordDialog(folder, login) {
 async function removeLoginDialog(login) {
   let purge = false;
   const ok = await dialog({
-    title: `Delete ${login.folder}?`,
+    title: `Delete ${isMemberLogin(login) ? (login.name || loginName(login.email)) : login.folder}?`,
     confirmLabel: "Delete login",
     danger: true,
     body: `
       <p>The login <strong>${esc(loginName(login.email))}</strong> is deleted for good and can't sign in again.</p>
-      <label class="sheet-choice"><input type="checkbox" data-purge><span>Also delete every note and approval in their space</span></label>
-      <p class="sheet-note">${svg("folder")}<span>Their Dropbox folder and videos are never touched. Delete those in Finder if you want them gone.</span></p>`,
+      ${isMemberLogin(login)
+        /* A member wrote nothing; purging would empty their leader's space. */
+        ? `<p class="sheet-note">${svg("users")}<span>A team member of ${esc(login.folder)}. The rest of the team and their space stay as they are.</span></p>`
+        : `<label class="sheet-choice"><input type="checkbox" data-purge><span>Also delete every note and approval in their space</span></label>
+           <p class="sheet-note">${svg("folder")}<span>Their Dropbox folder and videos are never touched. Delete those in Finder if you want them gone.</span></p>`}`,
     onOpen: (el) => {
-      el.querySelector("[data-purge]").addEventListener("change", (event) => { purge = event.target.checked; });
+      el.querySelector("[data-purge]")?.addEventListener("change", (event) => { purge = event.target.checked; });
     },
   });
   if (!ok) return;
@@ -991,19 +1064,25 @@ async function renderClients() {
     return renderMessage("Couldn't load clients", error.message);
   }
 
-  const card = (folder, login) => `
+  // `team`: this space has team members, so each card names its role.
+  const card = (folder, login, team = false) => {
+    const member = isMemberLogin(login);
+    const name = member ? (login.name || loginName(login.email)) : folder;
+    return `
     <article class="client-card">
       <button class="client-card-main" type="button" ${login ? `data-edit="${esc(login.id)}"` : `data-add-for="${esc(folder)}"`}>
-        ${avatar(folder, { size: "md", src: login?.avatar })}
+        ${avatar(name, { size: "md", src: login?.avatar })}
         <span class="client-card-name">
-          <strong>${esc(folder)}${updated(folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}</strong>
+          <strong>${esc(name)}${!member && updated(folder) ? `<span class="new-dot" title="Updated since you last looked"></span>` : ""}</strong>
           <span class="client-card-login ${login ? "" : "client-card-none"}">${login ? esc(loginName(login.email)) : "No login yet"}</span>
+          ${login && team ? `<span class="tag tag--quiet tag--mini client-card-role">${member ? `Team member · ${esc(folder)}` : "Team leader"}</span>` : ""}
           ${login ? presenceLine(login) : ""}
         </span>
       </button>
       <div class="client-card-tools">
         ${login ? `
           <a class="icon-button" href="${href.space(folder)}" title="Open their space" aria-label="Open ${esc(folder)}'s space">${svg("folder")}</a>
+          ${member ? "" : `<button class="icon-button" type="button" data-add-member="${esc(folder)}" title="Add team member" aria-label="Add a team member to ${esc(folder)}">${svg("userPlus")}</button>`}
           <button class="icon-button" type="button" data-edit="${esc(login.id)}" title="Edit client" aria-label="Edit ${esc(folder)}">${svg("settings")}</button>
           <button class="icon-button" type="button" data-invite="${esc(login.id)}" title="Copy invite" aria-label="Copy invite for ${esc(folder)}">${svg("copy")}</button>
           <button class="icon-button" type="button" data-reset="${esc(login.id)}" title="New password" aria-label="New password for ${esc(folder)}">${svg("key")}</button>
@@ -1011,8 +1090,14 @@ async function renderClients() {
         : `<button class="button button--compact" type="button" data-add-for="${esc(folder)}">${svg("plus")} Add login</button>`}
       </div>
     </article>`;
+  };
 
-  const cards = data.folders.flatMap((f) => f.logins.length ? f.logins.map((l) => card(f.folder, l)) : [card(f.folder, null)]).join("");
+  // The team leader first, then their team members.
+  const cards = data.folders.flatMap((f) => {
+    if (!f.logins.length) return [card(f.folder, null)];
+    const team = f.logins.some(isMemberLogin);
+    return [...f.logins].sort((a, b) => isMemberLogin(a) - isMemberLogin(b)).map((l) => card(f.folder, l, team));
+  }).join("");
 
   view.innerHTML = `
     <section class="page">
@@ -1054,7 +1139,10 @@ async function renderClients() {
     const reset = event.target.closest("[data-reset]");
     const remove = event.target.closest("[data-remove]");
     const addFor = event.target.closest("[data-add-for]");
-    if (edit) {
+    const addMember = event.target.closest("[data-add-member]");
+    if (addMember) {
+      await addMemberDialog(addMember.dataset.addMember);
+    } else if (edit) {
       const login = findLogin(edit.dataset.edit);
       await editClientDialog(login.folder, login);
     } else if (invite) {

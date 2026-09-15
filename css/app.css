@@ -1100,6 +1100,13 @@ body { overflow: hidden; }
 .reaction-faces .avatar + .avatar { margin-left: -0.3rem; }
 .avatar--xs { width: 1.1rem; height: 1.1rem; font-size: 0.4375rem; letter-spacing: 0; }
 
+/* Team members watch and download finished cuts: the player, no notes panel. */
+.review--watch .notes { display: none; }
+.review--watch .review-layout { grid-template-columns: minmax(0, 1fr); }
+.approval { flex-wrap: wrap; }
+.approval a.button { text-decoration: none; }
+.client-card-role { width: fit-content; }
+
 /* Tabs carry their own counts. */
 .tabs button i { font: 500 0.625rem / 1 var(--font-mono); font-style: normal; color: var(--white-28); }
 .tabs button.is-active i { color: var(--white-52); }

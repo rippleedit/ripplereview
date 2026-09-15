@@ -31,7 +31,12 @@ async function realApi() {
       const { data } = await sb.auth.getSession();
       if (!data.session) return null;
       if (!profile) {
-        const row = check(await sb.from("profiles").select("id, name, avatar, is_admin, client_folder").eq("id", data.session.user.id).single());
+        const columns = "id, name, avatar, is_admin, client_folder";
+        const own = () => sb.from("profiles").select(columns).eq("id", data.session.user.id).single();
+        // team_role arrives with database update 8; before it, everyone is a leader.
+        let result = await sb.from("profiles").select(`${columns}, team_role`).eq("id", data.session.user.id).single();
+        if (result.error) result = await own();
+        const row = check(result);
         profile = { ...row, email: data.session.user.email ?? "" };
       }
       return profile;
@@ -49,6 +54,8 @@ async function realApi() {
 
     library: (folder) => server("library", { folder }),
     link: async (fileId) => (await server("link", { fileId })).url,
+    // An approved cut's master: { name, size, specs, url }.
+    master: (fileId) => server("master", { fileId }),
     thumbs: async (paths) => (await server("thumbs", { paths })).thumbs,
 
     async summary(fileIds) {

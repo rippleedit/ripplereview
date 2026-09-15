@@ -20,6 +20,10 @@ const CORS = {
 };
 
 const VIDEO = /\.(mp4|m4v|mov|webm)$/i;
+// Masters can be whatever the studio exports: they're downloaded, not played.
+const MASTER = /\.(mp4|m4v|mov|mxf|mkv|avi|webm)$/i;
+// A master is named like its review copy without the _PREVIEW_ prefix.
+const stemOf = (name: string) => name.replace(/\.[^.]+$/, "").replace(/^_preview_/i, "");
 
 function serviceKey(): string {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -86,7 +90,7 @@ async function listAll(path: string, recursive: boolean) {
 
 // Access ------------------------------------------------------------------
 
-type Profile = { id: string; name: string; email: string; client_folder: string | null; is_admin: boolean };
+type Profile = { id: string; name: string; email: string; client_folder: string | null; is_admin: boolean; team_role?: string };
 
 async function whoIsAsking(req: Request): Promise<Profile> {
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -120,6 +124,21 @@ function requireAdmin(profile: Profile) {
   if (!profile.is_admin) throw new HttpError(403, "Admins only.");
 }
 
+// A team member (e.g. sim-thumbnails) watches and downloads approved cuts only.
+// Before database update 8 there is no team_role, so nobody is a member.
+const isMember = (profile: Profile) => !profile.is_admin && profile.team_role === "member";
+
+function requireReviewer(profile: Profile) {
+  if (isMember(profile)) throw new HttpError(403, "This login can watch and download finished cuts only.");
+}
+
+async function approvedIds(ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const { data, error } = await db.from("approvals").select("file_id").in("file_id", ids);
+  if (error) throw new HttpError(500, error.message);
+  return new Set((data ?? []).map((row: { file_id: string }) => row.file_id));
+}
+
 // Actions -----------------------------------------------------------------
 
 // "Song v2.mp4" → { base: "Song", version: 2 }. No number means version 1.
@@ -146,6 +165,15 @@ async function library(profile: Profile, requested: unknown) {
     projects.set(parts[0], { name: parts[0], videos: new Map() });
   }
 
+  // Masters sit in each project's hidden _MASTERS folder. Only whether one
+  // exists is listed here; the `master` action hands it out after approval.
+  const masters = new Set<string>();
+  for (const entry of entries) {
+    if (entry[".tag"] !== "file" || !MASTER.test(entry.name)) continue;
+    const parts = entry.path_display.split("/").slice(2);
+    if (parts.length === 3 && parts[1].toLowerCase() === "_masters") masters.add(`${parts[0]}/${stemOf(entry.name)}`.toLowerCase());
+  }
+
   for (const entry of entries) {
     if (entry[".tag"] !== "file" || !VIDEO.test(entry.name)) continue;
     const parts = entry.path_display.split("/").slice(2); // drop "" and the client folder
@@ -165,6 +193,7 @@ async function library(profile: Profile, requested: unknown) {
       size: entry.size,
       modified: entry.server_modified,
       version,
+      master: masters.has(`${projectName}/${stemOf(entry.name)}`.toLowerCase()),
     });
   }
 
@@ -197,7 +226,18 @@ async function library(profile: Profile, requested: unknown) {
     return { name: project.name, modified: latest(videos), videos, empty: videos.length === 0 };
   });
   out.sort((a, b) => b.modified.localeCompare(a.modified));
-  return { client: folder, projects: out };
+  if (!isMember(profile)) return { client: folder, projects: out };
+
+  // A team member only ever sees finished work: the approved versions.
+  const approved = await approvedIds(out.flatMap((p) => p.videos.flatMap((v: any) => v.versions.map((x: any) => x.id))));
+  const finished = out.map((project) => {
+    const videos = project.videos
+      .map((video: any) => ({ ...video, versions: video.versions.filter((v: any) => approved.has(v.id)) }))
+      .filter((video: any) => video.versions.length)
+      .map((video: any) => ({ ...video, modified: latest(video.versions) }));
+    return { ...project, videos, modified: latest(videos), empty: false };
+  }).filter((project) => project.videos.length);
+  return { client: folder, projects: finished };
 }
 
 async function link(profile: Profile, fileId: unknown) {
@@ -205,8 +245,40 @@ async function link(profile: Profile, fileId: unknown) {
   if (!id.startsWith("id:")) throw new HttpError(400, "Invalid file.");
   const meta = await dropbox("files/get_metadata", { path: id });
   if (!allowed(profile, meta.path_lower)) throw new HttpError(403, "Not your file.");
+  if (isMember(profile) && !(await approvedIds([id])).has(id)) throw new HttpError(403, "This cut isn't approved yet.");
   const data = await dropbox("files/get_temporary_link", { path: id });
   return { url: data.link };
+}
+
+// A small JSON file from Dropbox: the specs the proxy maker saves beside a master.
+async function dropboxJson(fileId: string) {
+  const res = await fetch("https://content.dropboxapi.com/2/files/download", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${await dropboxToken()}`, "Dropbox-API-Arg": JSON.stringify({ path: fileId }) },
+  });
+  if (!res.ok) throw new HttpError(502, "Couldn't read the master's specs.");
+  return await res.json();
+}
+
+// The full-quality master of one version: its specs for the button and a
+// download link (straight from Dropbox, good for four hours). Only once that
+// version is approved; the studio can always have it.
+async function master(profile: Profile, fileId: unknown) {
+  const id = String(fileId ?? "");
+  if (!id.startsWith("id:")) throw new HttpError(400, "Invalid file.");
+  const meta = await dropbox("files/get_metadata", { path: id });
+  if (!allowed(profile, meta.path_lower)) throw new HttpError(403, "Not your file.");
+  if (!profile.is_admin && !(await approvedIds([id])).has(id)) throw new HttpError(403, "The master unlocks once this cut is approved.");
+
+  const stem = stemOf(meta.name).toLowerCase();
+  const dir = `${meta.path_lower.split("/").slice(0, -1).join("/")}/_masters`;
+  const entries = await listAll(dir, false).catch(() => []);
+  const file = entries.find((e: any) => e[".tag"] === "file" && MASTER.test(e.name) && stemOf(e.name).toLowerCase() === stem);
+  if (!file) throw new HttpError(404, "No master for this cut yet.");
+  const sidecar = entries.find((e: any) => e[".tag"] === "file" && e.name.toLowerCase() === `${stem}.json`);
+  const specs = sidecar ? await dropboxJson(sidecar.id).catch(() => null) : null;
+  const data = await dropbox("files/get_temporary_link", { path: file.id });
+  return { name: file.name, size: file.size, specs, url: data.link };
 }
 
 async function thumbs(profile: Profile, paths: unknown) {
@@ -263,6 +335,7 @@ async function sendMail(subject: string, html: string, to?: string) {
 // here - the approvals table already holds it - so this only sends the notice.
 async function approvalChanged(profile: Profile, body: any) {
   if (profile.is_admin) return { emailed: false };      // the studio's own doing
+  requireReviewer(profile);
   const folder = profile.client_folder ?? "";
   if (!folder) throw new HttpError(403, "No client space is linked to this login yet.");
 
@@ -297,6 +370,7 @@ async function approvalChanged(profile: Profile, body: any) {
 // the app, and send one email, so they see it without opening the app.
 async function notesSubmitted(profile: Profile, body: any) {
   if (profile.is_admin) throw new HttpError(400, "That button is for clients.");
+  requireReviewer(profile);
   const folder = profile.client_folder ?? "";
   if (!folder) throw new HttpError(403, "No client space is linked to this login yet.");
 
@@ -337,7 +411,7 @@ async function clients(profile: Profile) {
   requireAdmin(profile);
   const [entries, { data: logins }] = await Promise.all([
     listAll("", false),
-    db.from("profiles").select("id, email, name, avatar, client_folder, is_admin, last_seen, created_at").order("created_at"),
+    db.from("profiles").select("*").order("created_at"),
   ]);
   const folders = entries
     .filter((e: any) => e[".tag"] === "folder")
@@ -357,6 +431,7 @@ async function createClientLogin(profile: Profile, body: any) {
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const name = String(body.name ?? "").trim() || folder;
+  const role = body.role === "member" ? "member" : "leader";
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "That name can't be turned into a username.");
   if (password.length < 8) throw new HttpError(400, "Use a password with at least 8 characters.");
 
@@ -372,7 +447,14 @@ async function createClientLogin(profile: Profile, body: any) {
   if (error) throw new HttpError(400, /already|registered|exists/i.test(error.message)
     ? "A login with that name already exists. Pick a different client name."
     : error.message);
-  await db.from("profiles").update({ client_folder: folder, name }).eq("id", data.user.id);
+  const patch: Record<string, unknown> = { client_folder: folder, name };
+  if (role === "member") patch.team_role = "member";
+  const { error: saveError } = await db.from("profiles").update(patch).eq("id", data.user.id);
+  if (saveError) {
+    // Without database update 8 a "member" would be a full client login: undo it.
+    if (role === "member") await db.auth.admin.deleteUser(data.user.id);
+    throw new HttpError(400, role === "member" ? "Run database update 8 first, then add the team member again." : saveError.message);
+  }
   return { ok: true };
 }
 
@@ -388,6 +470,9 @@ async function updateClient(profile: Profile, body: any) {
 
   const oldFolder = target.client_folder ?? "";
   const folder = body.folder === undefined ? oldFolder : cleanFolder(body.folder);
+  if (target.team_role === "member" && folder.toLowerCase() !== oldFolder.toLowerCase()) {
+    throw new HttpError(400, "A team member's space follows their team leader. Rename it from the leader's login.");
+  }
 
   if (folder.toLowerCase() !== oldFolder.toLowerCase()) {
     if (oldFolder) {
@@ -402,6 +487,10 @@ async function updateClient(profile: Profile, body: any) {
     // The notes and approvals move with them.
     await db.from("comments").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
     await db.from("approvals").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
+    await db.from("project_status").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
+    await db.from("submissions").update({ client_folder: folder.toLowerCase() }).eq("client_folder", oldFolder.toLowerCase());
+    // The rest of their team moves with them.
+    if (oldFolder) await db.from("profiles").update({ client_folder: folder }).eq("client_folder", oldFolder).neq("id", userId);
   }
 
   const patch: Record<string, unknown> = { client_folder: folder };
@@ -445,9 +534,10 @@ async function removeLogin(profile: Profile, body: any) {
 
   // Optionally wipe what they left behind, before the profile row goes.
   if (body.purge) {
-    const { data: target } = await db.from("profiles").select("client_folder").eq("id", userId).single();
+    const { data: target } = await db.from("profiles").select("*").eq("id", userId).single();
     const folder = target?.client_folder?.toLowerCase();
-    if (folder) {
+    // A team member leaves no notes; purging would wipe their leader's space.
+    if (folder && target?.team_role !== "member") {
       await db.from("comments").delete().eq("client_folder", folder);
       await db.from("approvals").delete().eq("client_folder", folder);
     }
@@ -474,6 +564,7 @@ Deno.serve(async (req) => {
       case "me": return reply(200, { profile });
       case "library": return reply(200, await library(profile, body.folder));
       case "link": return reply(200, await link(profile, body.fileId));
+      case "master": return reply(200, await master(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
       case "notes_submitted": return reply(200, await notesSubmitted(profile, body));
       case "approval_changed": return reply(200, await approvalChanged(profile, body));

@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, dialog, emojiImg, esc, href, parseTitle, parseVideo, REACTIONS, relTime, spinner, svg, toast } from "./ui.js";
+import { avatar, dialog, emojiImg, esc, fileSize, href, masterLabel, parseTitle, parseVideo, REACTIONS, relTime, spinner, svg, toast } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -43,6 +43,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const projectName = parseTitle(project.name);
   const cut = parseVideo(video.title, projectName.title);
   const latest = video.versions.at(-1);
+  // A team member (e.g. sim-thumbnails) only watches and downloads approved cuts:
+  // no notes panel, no approving, no hand-over.
+  const member = !profile.is_admin && profile.team_role === "member";
   const state = {
     comments: [],
     people: new Map(),          // who is in this space, for names and faces
@@ -59,10 +62,11 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     replyingTo: null,
     editingId: null,            // the note or reply being reworded
     reactions: [],              // { comment_id, user_id, emoji }: one per person per note
+    master: null,               // an approved cut's master: { name, size, specs, url, at }
   };
 
   view.innerHTML = `
-    <section class="review">
+    <section class="review ${member ? "review--watch" : ""}">
       <div class="review-bar">
         <span class="title-line">
           ${cut.code || projectName.code ? `<span class="tag tag--code">${esc(cut.code || projectName.code)}</span>` : ""}
@@ -828,10 +832,31 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           <span class="approved-mark" aria-hidden="true">${svg("check")}</span>
           <span><strong>v${version.label} approved</strong><small>${esc(state.approval.approved_name)} · ${relTime(state.approval.approved_at)}</small></span>
         </span>
-        <button type="button" class="icon-button" data-unapprove title="Undo approval" aria-label="Undo approval">${svg("undo")}</button>`;
+        ${member ? "" : `<button type="button" class="icon-button" data-unapprove title="Undo approval" aria-label="Undo approval">${svg("undo")}</button>`}
+        ${state.master ? `
+          <a class="button button--solid button--compact" data-master href="${esc(state.master.url)}" target="_blank" rel="noopener" download="${esc(state.master.name)}"
+            title="${esc([state.master.name, fileSize(state.master.size)].filter(Boolean).join(" · "))}">
+            ${svg("download")} Download Master${masterLabel(state.master.specs) ? ` (${esc(masterLabel(state.master.specs))})` : ""}
+          </a>` : ""}`;
     } else {
-      box.innerHTML = `<button type="button" class="button button--solid button--compact" data-approve>${svg("check")} ${profile.is_admin ? `Mark v${version.label} approved` : `Approve v${version.label}`}</button>`;
+      box.innerHTML = member ? "" : `<button type="button" class="button button--solid button--compact" data-approve>${svg("check")} ${profile.is_admin ? `Mark v${version.label} approved` : `Approve v${version.label}`}</button>`;
     }
+  }
+
+  // An approved cut's master, if the proxy maker filed one: fetched with a
+  // fresh download link. No master, or a server function older than masters:
+  // simply no button.
+  async function loadMaster() {
+    if (!state.approval) {
+      state.master = null;
+      return renderApproval();
+    }
+    try {
+      state.master = { ...(await api.master(fileId)), at: Date.now() };
+    } catch {
+      state.master = null;
+    }
+    renderApproval();
   }
 
   // Notes written after the last hand-over haven't reached the studio yet.
@@ -846,6 +871,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   function renderHandover() {
     const box = $("[data-handover]");
     if (!box) return;
+    if (member) {
+      box.innerHTML = "";
+      return;
+    }
     const when = state.submission ? relTime(state.submission.created_at) : null;
     if (profile.is_admin) {
       box.innerHTML = when
@@ -899,10 +928,20 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     api.approvalChanged?.(fileId, `${projectName.title} — ${cut.label}${cut.rough ? " (rough cut)" : ""} v${version.label}`, approved).catch(() => {});
 
   $("[data-approval]").addEventListener("click", async (event) => {
+    // Dropbox download links last four hours: an older one is swapped for a fresh one.
+    if (event.target.closest("[data-master]")) {
+      if (Date.now() - state.master.at > 3.5 * 3600e3) {
+        event.preventDefault();
+        await loadMaster();
+        if (state.master) location.assign(state.master.url);
+      }
+      return;
+    }
     try {
       if (event.target.closest("[data-approve]")) {
         state.approval = await api.approve(fileId, library.client);
         notifyApproval(true);
+        loadMaster();
         toast("Approved. Thank you!");
       } else if (event.target.closest("[data-unapprove]")) {
         const ok = await dialog({ title: "Withdraw approval?", confirmLabel: "Withdraw", danger: true,
@@ -910,6 +949,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         if (!ok) return;
         await api.unapprove(fileId);
         state.approval = null;
+        state.master = null;
         notifyApproval(false);
       } else return;
       renderApproval();
@@ -936,11 +976,14 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       const changed = JSON.stringify(comments) !== JSON.stringify(state.comments) || JSON.stringify(approval) !== JSON.stringify(state.approval)
         || reactionKey(reactions) !== reactionKey(state.reactions);
       if (!changed) return;
+      const newlyApproved = approval && !state.approval;
       state.comments = comments;
       state.approval = approval;
       state.reactions = reactions;
+      if (!approval) state.master = null;
       renderAll();
       renderApproval();
+      if (newlyApproved) loadMaster();
     } catch {}
   }
   const poll = setInterval(refresh, 20000);
@@ -980,6 +1023,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   renderAll();
   renderApproval();
   renderHandover();
+  loadMaster();
 
   return () => {
     document.removeEventListener("keydown", onKey);

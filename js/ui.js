@@ -86,6 +86,8 @@ export const icon = {
   close: '<path d="M18 6 6 18M6 6l12 12"/>',
   draw: '<path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/><path d="M5 21h14"/>',
   edit: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.1 2.1 0 1 1 3 3L12 15l-4 1 1-4z"/>',
+  download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
   undo: '<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-4.5-4.5L6 21"/>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
@@ -218,6 +220,24 @@ export function parseTitle(raw = "") {
   }
   const title = rest.join(" ").replace(/[-–]+/g, " ").replace(/\s+/g, " ").trim();
   return { title: title || String(raw), code, preview, raw: String(raw) };
+}
+
+// A master's specs the way people say them: "4K, 24fps, 50Mbps". The proxy
+// maker measures them when it files the master (tools/proxy.mjs).
+export function masterLabel(specs) {
+  if (!specs) return "";
+  const long = Math.max(specs.width ?? 0, specs.height ?? 0);
+  const resolution = long >= 7680 ? "8K" : long >= 5760 ? "6K" : long >= 3840 ? "4K" : long >= 2560 ? "1440p"
+    : long >= 1920 ? "1080p" : long >= 1280 ? "720p" : long ? `${Math.min(specs.width, specs.height)}p` : "";
+  const fps = specs.fps ? `${Math.round(specs.fps * 1000) / 1000}fps` : "";
+  const mbps = specs.bitrate / 1e6;
+  const bitrate = specs.bitrate ? `${mbps >= 10 ? Math.round(mbps) : Math.round(mbps * 10) / 10}Mbps` : "";
+  return [resolution, fps, bitrate].filter(Boolean).join(", ");
+}
+
+export function fileSize(bytes) {
+  if (!bytes) return "";
+  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 }
 
 export function titleTag({ code, preview }) {
