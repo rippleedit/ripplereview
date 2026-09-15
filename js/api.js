@@ -56,6 +56,9 @@ async function realApi() {
     link: async (fileId) => (await server("link", { fileId })).url,
     // An approved cut's master: { name, size, specs, url }.
     master: (fileId) => server("master", { fileId }),
+    // A Dropbox share link to that master ({ url }), and turning it off again.
+    shareLink: (fileId) => server("share_link", { fileId }),
+    revokeShareLink: (fileId) => server("revoke_share_link", { fileId }),
     thumbs: async (paths) => (await server("thumbs", { paths })).thumbs,
 
     async summary(fileIds) {

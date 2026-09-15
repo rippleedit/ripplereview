@@ -1111,6 +1111,11 @@ body { overflow: hidden; }
 /* While the master's download link is being made. */
 .master-pending { gap: 0.55rem; border-color: var(--white-14); color: var(--white-52); cursor: default; }
 .master-pending .spin { width: 0.95rem; height: 0.95rem; }
+/* Copy Dropbox Link: the logo sits between the words, filled, in the text colour. */
+.icon--brand, .icon--brand path { fill: currentColor; stroke: none; }
+.share-link { gap: 0.4rem; }
+.share-link .icon--brand { width: 0.95rem; height: 0.95rem; }
+.share-link .spin { width: 0.95rem; height: 0.95rem; }
 .approval { flex-wrap: wrap; }
 .approval a.button { text-decoration: none; }
 .client-card-role { width: fit-content; }

@@ -260,25 +260,78 @@ async function dropboxJson(fileId: string) {
   return await res.json();
 }
 
-// The full-quality master of one version: its specs for the button and a
-// download link (straight from Dropbox, good for four hours). Only once that
-// version is approved; the studio can always have it.
-async function master(profile: Profile, fileId: unknown) {
+// The master that belongs to one review copy: `_MASTERS/X.*` beside `_PREVIEW_X.mp4`.
+// `approved`: only once that version is approved (the studio can always have it).
+async function findMaster(profile: Profile, fileId: unknown, { approved = true } = {}) {
   const id = String(fileId ?? "");
   if (!id.startsWith("id:")) throw new HttpError(400, "Invalid file.");
   const meta = await dropbox("files/get_metadata", { path: id });
   if (!allowed(profile, meta.path_lower)) throw new HttpError(403, "Not your file.");
-  if (!profile.is_admin && !(await approvedIds([id])).has(id)) throw new HttpError(403, "The master unlocks once this cut is approved.");
+  if (approved && !profile.is_admin && !(await approvedIds([id])).has(id)) throw new HttpError(403, "The master unlocks once this cut is approved.");
 
   const stem = stemOf(meta.name).toLowerCase();
   const dir = `${meta.path_lower.split("/").slice(0, -1).join("/")}/_masters`;
   const entries = await listAll(dir, false).catch(() => []);
   const file = entries.find((e: any) => e[".tag"] === "file" && MASTER.test(e.name) && stemOf(e.name).toLowerCase() === stem);
   if (!file) throw new HttpError(404, "No master for this cut yet.");
+  return { id, stem, entries, file };
+}
+
+// The full-quality master of one version: its specs for the button and a
+// download link (straight from Dropbox, good for four hours).
+async function master(profile: Profile, fileId: unknown) {
+  const { stem, entries, file } = await findMaster(profile, fileId);
   const sidecar = entries.find((e: any) => e[".tag"] === "file" && e.name.toLowerCase() === `${stem}.json`);
   const specs = sidecar ? await dropboxJson(sidecar.id).catch(() => null) : null;
   const data = await dropbox("files/get_temporary_link", { path: file.id });
   return { name: file.name, size: file.size, specs, url: data.link };
+}
+
+// Share links need the Dropbox app's sharing permission, and a refresh token
+// made after it was ticked (setup/dropbox-token.mjs).
+const noSharing = (error: unknown) => String((error as Error)?.message).includes("missing_scope");
+
+async function linksTo(path: string): Promise<{ url: string }[]> {
+  const { links } = await dropbox("sharing/list_shared_links", { path, direct_only: true });
+  return links ?? [];
+}
+
+// A Dropbox share link to an approved cut's master, to pass on. Anyone with the
+// link can open and download it; withdrawing the approval turns it off.
+async function shareLink(profile: Profile, fileId: unknown) {
+  const { file } = await findMaster(profile, fileId);
+  try {
+    const link = await dropbox("sharing/create_shared_link_with_settings", { path: file.path_lower });
+    return { url: link.url };
+  } catch (error) {
+    if (noSharing(error)) throw new HttpError(503, "Dropbox links aren't switched on yet: the RippleReview Dropbox app needs its sharing permission.");
+    if (!String((error as Error).message).includes("shared_link_already_exists")) throw error;
+    const [existing] = await linksTo(file.path_lower);
+    if (!existing) throw error;
+    return { url: existing.url };
+  }
+}
+
+// An approval was withdrawn: every share link to that master stops working.
+async function revokeShareLink(profile: Profile, fileId: unknown) {
+  requireReviewer(profile);
+  let found;
+  try {
+    found = await findMaster(profile, fileId, { approved: false });
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) return { revoked: 0 };   // no master, no link
+    throw error;
+  }
+  if ((await approvedIds([found.id])).has(found.id)) throw new HttpError(400, "This cut is still approved.");
+  let links: { url: string }[] = [];
+  try {
+    links = await linksTo(found.file.path_lower);
+  } catch (error) {
+    if (noSharing(error)) return { revoked: 0 };                                    // links were never switched on
+    throw error;
+  }
+  for (const link of links) await dropbox("sharing/revoke_shared_link", { url: link.url }).catch(() => {});
+  return { revoked: links.length };
 }
 
 async function thumbs(profile: Profile, paths: unknown) {
@@ -565,6 +618,8 @@ Deno.serve(async (req) => {
       case "library": return reply(200, await library(profile, body.folder));
       case "link": return reply(200, await link(profile, body.fileId));
       case "master": return reply(200, await master(profile, body.fileId));
+      case "share_link": return reply(200, await shareLink(profile, body.fileId));
+      case "revoke_share_link": return reply(200, await revokeShareLink(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
       case "notes_submitted": return reply(200, await notesSubmitted(profile, body));
       case "approval_changed": return reply(200, await approvalChanged(profile, body));

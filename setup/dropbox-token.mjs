@@ -6,13 +6,20 @@
 // sent anywhere except to Dropbox itself.
 
 import { createHash, randomBytes } from "node:crypto";
-import { exec } from "node:child_process";
+import { exec, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 import { createInterface } from "node:readline/promises";
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const base64url = (buffer) => buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-const appKey = (await rl.question("\n1) Paste your Dropbox App key: ")).trim();
+// The Proxy Watcher saved the App key when it connected; offer it (it isn't secret).
+let knownKey = "";
+try { knownKey = JSON.parse(readFileSync(path.join(homedir(), ".ripplereview", "dropbox.json"), "utf8")).app_key ?? ""; } catch {}
+
+const appKey = (await rl.question(`\n1) Paste your Dropbox App key${knownKey ? ` (or just press Enter for ${knownKey})` : ""}: `)).trim() || knownKey;
 if (!appKey) process.exit(1);
 
 const verifier = base64url(randomBytes(48));
@@ -47,4 +54,10 @@ if (!res.ok || !data.refresh_token) {
 console.log("\nDone. Add these two secrets in Supabase → Edge Functions → Secrets:\n");
 console.log(`   DROPBOX_APP_KEY        ${appKey}`);
 console.log(`   DROPBOX_REFRESH_TOKEN  ${data.refresh_token}\n`);
+// On a Mac the token also goes onto the clipboard, ready to paste.
+if (process.platform === "darwin") {
+  const copy = spawn("pbcopy");
+  copy.stdin.end(data.refresh_token);
+  console.log("The refresh token is on your clipboard.");
+}
 console.log("Keep the refresh token private: it gives access to the RippleReview app folder.\n");

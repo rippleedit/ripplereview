@@ -118,6 +118,10 @@ export function emojiImg(reaction) {
   return `<img class="emoji" src="${EMOJI}${reaction.code}.png" alt="${reaction.char}" width="64" height="64" draggable="false">`;
 }
 
+// The Dropbox glyph (Simple Icons, CC0), filled rather than outlined, in the
+// text colour of whatever it sits in.
+export const dropboxLogo = '<svg class="icon icon--brand" viewBox="0 0 24 24" aria-label="Dropbox" role="img"><path d="M6 1.807 0 5.629l6 3.822 6.001-3.822L6 1.807zM18 1.807l-6 3.822 6 3.822 6-3.822-6-3.822zM0 13.274l6 3.822 6.001-3.822L6 9.452l-6 3.822zM18 9.452l-6 3.822 6 3.822 6-3.822-6-3.822zM6 18.371l6.001 3.822 6-3.822-6-3.822L6 18.371z"/></svg>';
+
 export function svg(name, className = "") {
   return `<svg class="icon ${className}" viewBox="0 0 24 24" aria-hidden="true">${icon[name]}</svg>`;
 }

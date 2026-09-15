@@ -14,7 +14,8 @@ Done once. About 15 minutes. Do the steps in order.
 1. [dropbox.com/developers/apps](https://www.dropbox.com/developers/apps) → **Create app**:
    **Scoped access** → **App folder** → name it `RippleReview`.
    (It must be "App folder". The app then only ever sees `Dropbox/Apps/RippleReview`.)
-2. **Permissions** tab: tick `files.metadata.read`, `files.content.read`, `files.content.write` → **Submit**.
+2. **Permissions** tab: tick `files.metadata.read`, `files.content.read`, `files.content.write`,
+   `sharing.read`, `sharing.write` → **Submit**. (The sharing two power "Copy Dropbox Link".)
 3. **Settings** tab: copy the **App key**.
 4. In a terminal, in this folder, run:
 

@@ -135,6 +135,12 @@ export function demoApi() {
         specs: { width: 3840, height: 2160, fps: 23.976, bitrate: 49983959 },
       });
     },
+    async shareLink(fileId) {
+      if (!me.is_admin && !state.approvals.some((a) => a.file_id === fileId)) throw new Error("The master unlocks once this cut is approved.");
+      const found = allFiles().find((f) => f.id === fileId);
+      return wait({ url: `https://www.dropbox.com/scl/fi/demo${found.id.slice(-3)}/${found.name.replace(/^_preview_/i, "")}?rlkey=demo&dl=0` });
+    },
+    revokeShareLink: () => wait({ revoked: 1 }),
     link: (fileId) => wait(CLIPS[allFiles().find((f) => f.id === fileId)?.clip ?? 0]),
     // The short gets a vertical still, the rest landscape ones.
     thumbs: (paths) => wait(Object.fromEntries(paths.map((p, i) => [p, p.includes("ms1") ? "assets/demo/clip-vertical.jpg" : THUMBS[(p.length + i) % THUMBS.length]]))),

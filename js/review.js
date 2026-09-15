@@ -5,7 +5,7 @@
 
 import { api } from "./api.js";
 import { download, frameOf, snapRate, timecode, toCsv, toResolveEdl, toText } from "./timecode.js";
-import { avatar, dialog, emojiImg, esc, fileSize, href, masterLabel, parseTitle, parseVideo, REACTIONS, relTime, spinner, svg, toast } from "./ui.js";
+import { avatar, copyField, dialog, dropboxLogo, emojiImg, esc, fileSize, href, masterLabel, parseTitle, parseVideo, REACTIONS, relTime, spinner, svg, toast, wireCopy } from "./ui.js";
 
 const ICON = {
   play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>',
@@ -63,6 +63,7 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
     editingId: null,            // the note or reply being reworded
     reactions: [],              // { comment_id, user_id, emoji }: one per person per note
     master: null,               // an approved cut's master: { name, size, specs, url, at }
+    shareUrl: null,             // its Dropbox share link, once someone has copied it
   };
 
   view.innerHTML = `
@@ -839,7 +840,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
           <a class="button button--solid button--compact" data-master href="${esc(state.master.url)}" target="_blank" rel="noopener" download="${esc(state.master.name)}"
             title="${esc([state.master.name, fileSize(state.master.size)].filter(Boolean).join(" · "))}">
             ${svg("download")} Download Master${masterLabel(state.master.specs) ? ` (${esc(masterLabel(state.master.specs))})` : ""}
-          </a>` : ""}`;
+          </a>
+          <button type="button" class="button button--compact share-link" data-share title="Copies a Dropbox link to the master. Anyone with the link can open and download it.">
+            ${dropboxLogo} Copy Link
+          </button>` : ""}`;
     } else {
       box.innerHTML = member ? "" : `<button type="button" class="button button--solid button--compact" data-approve>${svg("check")} ${profile.is_admin ? `Mark v${version.label} approved` : `Approve v${version.label}`}</button>`;
     }
@@ -933,7 +937,45 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
   const notifyApproval = (approved) =>
     api.approvalChanged?.(fileId, `${projectName.title} — ${cut.label}${cut.rough ? " (rough cut)" : ""} v${version.label}`, approved).catch(() => {});
 
+  // A Dropbox link to the master, straight onto the clipboard. Made on the first
+  // click and kept for the next; withdrawing the approval turns it off.
+  async function copyShareLink(button) {
+    // One request per click at most, shared by the copy and the fallback below.
+    const link = state.shareUrl
+      ? Promise.resolve(state.shareUrl)
+      : api.shareLink(fileId).then(({ url }) => (state.shareUrl = url));
+    link.catch(() => {});
+    const label = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = `${spinner()}<span>Copying…</span>`;
+    let copied = false;
+    try {
+      if (window.ClipboardItem && navigator.clipboard?.write) {
+        // Asked for inside the click, so Safari still allows it once the link arrives.
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": link.then((url) => new Blob([url], { type: "text/plain" })) })]);
+      } else {
+        await navigator.clipboard.writeText(await link);
+      }
+      copied = true;
+    } catch {}
+    const url = await link.catch((error) => { toast(error.message); return null; });
+    button.disabled = false;
+    button.innerHTML = label;
+    if (!url) return;
+    if (copied) return toast("Dropbox link copied");
+    // The browser wouldn't copy it: show the link to copy by hand.
+    await dialog({
+      title: "Dropbox link",
+      body: `${copyField("Link to the master", url)}<p class="sheet-note">${svg("alert")}<span>Anyone with this link can open and download the master.</span></p>`,
+      confirmLabel: "Done",
+      cancelLabel: "",
+      onOpen: wireCopy,
+    });
+  }
+
   $("[data-approval]").addEventListener("click", async (event) => {
+    const share = event.target.closest("[data-share]");
+    if (share) return copyShareLink(share);
     // Dropbox download links last four hours: an older one is swapped for a fresh one.
     if (event.target.closest("[data-master]")) {
       if (Date.now() - state.master.at > 3.5 * 3600e3) {
@@ -956,6 +998,9 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
         await api.unapprove(fileId);
         state.approval = null;
         state.master = null;
+        // Any Dropbox link to the master stops working with the approval.
+        state.shareUrl = null;
+        api.revokeShareLink(fileId).catch(() => {});
         notifyApproval(false);
       } else return;
       renderApproval();
@@ -986,7 +1031,10 @@ export async function renderReview(view, { folder, fileId, profile, getLibrary }
       state.comments = comments;
       state.approval = approval;
       state.reactions = reactions;
-      if (!approval) state.master = null;
+      if (!approval) {
+        state.master = null;
+        state.shareUrl = null;
+      }
       renderAll();
       renderApproval();
       if (newlyApproved) loadMaster();

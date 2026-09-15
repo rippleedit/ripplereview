@@ -36,7 +36,15 @@ Razz's ideas from 14 Sep, with what was decided before building:
 - Wording: this is the *client's* team. The greyed "Team" menu item below is
   the *studio's* team (editors). Keep the two apart.
 
+- **Copy Dropbox Link** (15 Sep) beside Download Master, for everyone who can
+  download. A public Dropbox link to the master, made on first click; when the
+  approval is withdrawn the app asks the server to turn every link to that
+  master off. Needs the Dropbox app's `sharing.read`/`sharing.write` and a
+  refresh token made after ticking them.
+
 Left open:
+- A withdrawal only turns links off if the app gets to tell the server (it does
+  right after undo). A withdrawal that fails midway could leave a link up.
 - **Check on the first real approval** that the Download button saves the file.
   Dropbox's temporary links may open the video in a tab instead; if so, the
   server should hand out a link that forces a download.
