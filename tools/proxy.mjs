@@ -49,10 +49,49 @@ const say = (...parts) => console.log(...parts);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sizeText = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round((bytes ?? 0) / 1e6))} MB`);
 
-function run(command, args) {
+// How long something took or has left: "42s", "3m 05s", "1h 02m".
+function clock(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
+  return `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, "0")}m`;
+}
+
+// A progress line that redraws itself in place: a bar, how fast, time left.
+// Only in a terminal window; anywhere else just the finished lines are printed.
+const REDRAW = "\r" + String.fromCharCode(27) + "[K";
+function meter(label) {
+  const started = Date.now();
+  const elapsed = () => (Date.now() - started) / 1000;
+  let drawn = 0;
+  return {
+    update(fraction, detail = "") {
+      if (!process.stdout.isTTY || Date.now() - drawn < 250) return;
+      drawn = Date.now();
+      const f = Math.min(1, Math.max(0, fraction || 0));
+      const filled = Math.round(f * 24);
+      // A guess at time left only once there's enough to go on.
+      const left = f > 0.02 && elapsed() > 3 ? `${clock(elapsed() / f - elapsed())} left` : "";
+      process.stdout.write(`${REDRAW}    ${label}  ${"█".repeat(filled)}${"░".repeat(24 - filled)} ${String(Math.floor(f * 100)).padStart(3)}%  ${[detail, left].filter(Boolean).join(" · ")}`);
+    },
+    done(text) {
+      if (process.stdout.isTTY) process.stdout.write(REDRAW);
+      say(`    ✓ ${text}  (${clock(elapsed())})`);
+    },
+  };
+}
+
+// `onLine` hears each line the command prints (ffmpeg's progress reports).
+function run(command, args, onLine = () => {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     let err = "";
+    let pending = "";
+    child.stdout.on("data", (chunk) => {
+      const lines = (pending + chunk).split("\n");
+      pending = lines.pop();
+      lines.forEach(onLine);
+    });
     child.stderr.on("data", (chunk) => { err += chunk; });
     child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(err.trim().split("\n").slice(-3).join("\n")))));
   });
@@ -198,12 +237,16 @@ async function projects() {
 
 // Straight from the drive to Dropbox, in pieces, so a file of any size works
 // and nothing is copied onto this Mac first. A file of the same name is replaced.
-async function upload(file, dropboxPath, label) {
+async function upload(file, dropboxPath, label, doneText = `${label} uploaded`) {
   const size = (await stat(file)).size;
   const commit = { path: dropboxPath, mode: "overwrite", mute: true };
   const handle = await open(file, "r");
+  const progress = meter(`↑ ${label}`);
+  const started = Date.now();
   const show = (done) => {
-    if (process.stdout.isTTY) process.stdout.write(`\r    ↑ ${label}  ${Math.floor((done / size) * 100)}% of ${sizeText(size)}   `);
+    const seconds = (Date.now() - started) / 1000;
+    const speed = seconds > 1 ? ` · ${(done / 1e6 / seconds).toFixed(1)} MB/s` : "";
+    progress.update(done / size, `${sizeText(done)} of ${sizeText(size)}${speed}`);
   };
   const piece = async (offset) => {
     const buffer = Buffer.alloc(Math.min(CHUNK, size - offset));
@@ -227,8 +270,7 @@ async function upload(file, dropboxPath, label) {
       }
       await call(`${CONTENT}/2/files/upload_session/finish`, { arg: { cursor: { session_id, offset }, commit }, body: await piece(offset) });
     }
-    show(size);
-    if (process.stdout.isTTY) process.stdout.write("\n");
+    progress.done(`${doneText}, ${sizeText(size)}`);
   } finally {
     await handle.close();
   }
@@ -293,10 +335,13 @@ async function makeProxy(file, all, { keep = false } = {}) {
   const out = path.join(WORKING, preview);
   await mkdir(WORKING, { recursive: true });
 
+  const began = Date.now();
   try {
-    const started = Date.now();
+    const encoding = meter("encoding");
+    let encodedTo = 0;
+    let speed = "";
     await run("ffmpeg", [
-      "-hide_banner", "-loglevel", "error", "-y", "-i", file,
+      "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y", "-i", file,
       "-vf", scale,
       "-c:v", "libx264", "-profile:v", "high", "-preset", "medium",
       "-b:v", BITRATE, "-maxrate", MAXRATE, "-bufsize", "12M",
@@ -305,10 +350,15 @@ async function makeProxy(file, all, { keep = false } = {}) {
       "-c:a", "aac", "-b:a", "256k", "-ar", "48000",
       "-movflags", "+faststart",
       out,
-    ]);
-    say(`    ✓ review copy made  ${sizeText((await stat(out)).size)} in ${Math.round((Date.now() - started) / 1000)}s`);
-    await upload(out, `${target.path}/${preview}`, "review copy");
-    say(`    ✓ review copy in Dropbox`);
+    ], (line) => {
+      // ffmpeg reports about twice a second: how far into the film it is, and how fast.
+      const [key, value = ""] = line.split("=");
+      if (key === "out_time_us" || key === "out_time_ms") encodedTo = Number(value) / 1e6 || encodedTo;
+      if (key === "speed" && value.trim() !== "N/A") speed = `${value.trim().replace(/x$/, "")}× real time`;
+      if (key === "progress") encoding.update(encodedTo / specs.duration, speed);
+    });
+    encoding.done(`review copy made, ${sizeText((await stat(out)).size)}`);
+    await upload(out, `${target.path}/${preview}`, "review copy", "review copy in Dropbox");
   } finally {
     await unlink(out).catch(() => {});
   }
@@ -321,15 +371,14 @@ async function makeProxy(file, all, { keep = false } = {}) {
     arg: { path: `${target.path}/_MASTERS/${stem}.json`, mode: "overwrite", mute: true },
     body: Buffer.from(`${JSON.stringify({ file: masterName, ...specs }, null, 2)}\n`),
   });
-  await upload(file, `${target.path}/_MASTERS/${masterName}`, "master");
-  say(`    ✓ master in Dropbox (${target.project}/_MASTERS)`);
+  await upload(file, `${target.path}/_MASTERS/${masterName}`, "master", `master in Dropbox (${target.project}/_MASTERS)`);
 
   if (!keep) {
     await mkdir(UPLOADED, { recursive: true });
     await rename(file, path.join(UPLOADED, name));
     say(`    ✓ duplicate moved to RippleDrop/_uploaded (safe to delete from there)`);
   }
-  say("");
+  say(`    ✓ all done in ${clock((Date.now() - began) / 1000)}\n`);
   return true;
 }
 

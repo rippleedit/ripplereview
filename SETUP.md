@@ -48,7 +48,8 @@ set the subdomain's **CNAME** record to `rippleedit.github.io` (this replaces it
 - **Someone on a client's team** (e.g. `sim-thumbnails`): Clients page → that client's card →
   the person-plus icon. They only see approved cuts, to watch them and download the master.
 - **New video:** export your master as usual, then duplicate it into `RippleDrop` at the
-  top of the ERF_WORK2 drive, with the Proxy Watcher running (`tools/Proxy Watcher.command`).
+  top of the ERF_WORK2 drive, with the Proxy Watcher running (double-click
+  `! Start Proxies` at the top of that folder, or `tools/Proxy Watcher.command`).
   It reads the job code, makes the review copy (`_PREVIEW_…`) and uploads it to that project,
   then uploads the master into the project's hidden `_MASTERS` folder so the client can
   download it once they approve. Both go straight from the drive to Dropbox; nothing big
