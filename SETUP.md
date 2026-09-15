@@ -45,10 +45,17 @@ set the subdomain's **CNAME** record to `rippleedit.github.io` (this replaces it
 ## Daily use
 
 - **New client:** Clients page → "Add a client login" → copy the login message and send it to them.
-- **New video:** export your master as usual, then drop it into `~/Desktop/RippleDrop`
-  with the Proxy Watcher running (`tools/Proxy Watcher.command`). It makes the review
-  copy, names it `_PREVIEW_…` and files it under the right client and project by its job
-  code. The master stays out of Dropbox, in `RippleDrop/_masters`.
+- **Someone on a client's team** (e.g. `sim-thumbnails`): Clients page → that client's card →
+  the person-plus icon. They only see approved cuts, to watch them and download the master.
+- **New video:** export your master as usual, then duplicate it into `RippleDrop` at the
+  top of the ERF_WORK2 drive, with the Proxy Watcher running (`tools/Proxy Watcher.command`).
+  It reads the job code, makes the review copy (`_PREVIEW_…`) and uploads it to that project,
+  then uploads the master into the project's hidden `_MASTERS` folder so the client can
+  download it once they approve. Both go straight from the drive to Dropbox; nothing big
+  lands on the Mac. Your duplicate then waits in `RippleDrop/_uploaded` (delete it whenever).
+  Anything without a matching job code goes to `RippleDrop/_unsorted`.
+- **First start of the watcher:** it asks for the Dropbox App key (dropbox.com/developers/apps
+  → RippleReview → Settings) and for one click on Allow. Once only.
   To do it by hand instead: export H.264 .mp4, 1080p, ~4–6 Mbps, keyframe every second,
   AAC 256 kbps, and drop it into `Dropbox/Apps/RippleReview/<Client>/<Project>/`.
 - **New version:** same folder, same title plus `v2`, `v3`: `Midnight Drive v2.mp4`.

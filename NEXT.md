@@ -15,6 +15,37 @@ Around it sit three smaller ones:
 - Can an editor approve on the studio's behalf, or only the owner?
 - Does an editor get the "with you" queue filtered to their own work?
 
+## Built 15 Sep 2026: master downloads and client teams
+
+Razz's ideas from 14 Sep, with what was decided before building:
+
+- **Masters in Dropbox.** The plan has 2 TB+. Exports live on the ERF_WORK2
+  drive, so the drop folder is `ERF_WORK2/RippleDrop`. (Scanning each project's
+  Exports folder instead was rejected: 93 old exports would have gone up.) The
+  watcher uploads the review copy and the master (into the project's hidden
+  `_MASTERS`, with a `.json` of its specs) straight from the drive through the
+  Dropbox API, so nothing large touches the Mac. Masters from before 15 Sep
+  stay in `~/Desktop/RippleDrop/_masters`, deliberately.
+- **Download button after approval:** "Download Master (4K, 24fps, 50Mbps)",
+  for the team leader, team members and the studio. The server hands out the
+  Dropbox link only for an approved version.
+- **Client teams.** A client's own login is the *team leader*; *team members*
+  (e.g. `sim-thumbnails`) see only approved versions, to watch and download
+  the master. No notes, reactions, approving or hand-over. Only the studio
+  creates them: Manage logins → client card → person-plus icon.
+- Wording: this is the *client's* team. The greyed "Team" menu item below is
+  the *studio's* team (editors). Keep the two apart.
+
+Left open:
+- **Check on the first real approval** that the Download button saves the file.
+  Dropbox's temporary links may open the video in a tab instead; if so, the
+  server should hand out a link that forces a download.
+- The Mac had about 10 GB free on 15 Sep. If the Dropbox app starts pulling
+  uploaded masters down onto it, make `Apps/RippleReview` online-only in Finder.
+- The watcher keeps its own Dropbox key in `~/.ripplereview/dropbox.json`. If
+  Dropbox stops accepting it, delete that file and start the watcher again.
+- Team members get no email when a cut is approved.
+
 ## Reserved in the menu, not built
 
 Both appear greyed with a "Soon" tag in the studio sidebar, so the shape of the
