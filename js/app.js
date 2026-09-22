@@ -53,6 +53,7 @@ async function route() {
   document.querySelectorAll("dialog.sheet[open]").forEach((el) => el.close());
 
   profile = await api.session();
+  bootDone();
   if (!profile) return renderSignIn();
 
   auth.hidden = true;
@@ -305,7 +306,8 @@ async function renderSpace(folder, only = null) {
     const cut = parseVideo(video.title, projectTitle);
     // New to the studio means "the client finished reviewing since you last
     // looked"; new to the client means "a cut arrived since you last looked".
-    const handed = handedOver.get(latest.id);
+    // Only while the client's notes on it are still open, as on Home.
+    const handed = status.kind === "notes" ? handedOver.get(latest.id) : null;
     const fresh = profile.is_admin
       ? Boolean(handed && seen && handed.created_at > seen)
       : Boolean(seen && latest.modified > seen);
@@ -597,7 +599,9 @@ async function gatherHome() {
 
   for (const cut of cuts) {
     cut.status = videoStatus(cut.latest.id, summary);
-    cut.handed = handed.get(cut.latest.id) ?? null;
+    // A hand-over is "notes in" only while the client's notes on that cut are
+    // still open: once they're all done (or there were none) it has been dealt with.
+    cut.handed = cut.status.kind === "notes" ? (handed.get(cut.latest.id) ?? null) : null;
     cut.finished = finished.has(`${cut.folder.toLowerCase()}/${cut.project.name}`);
     cut.title = parseVideo(cut.video.title, parseTitle(cut.project.name).title);
   }
@@ -1169,4 +1173,19 @@ function keepPresence() {
 }
 
 window.addEventListener("hashchange", route);
-route().then(keepPresence);
+// The start-up screen in index.html goes once the app knows who is here.
+function bootDone() {
+  const boot = document.querySelector("[data-boot]");
+  if (!boot || boot.classList.contains("is-leaving")) return;
+  boot.classList.add("is-leaving");
+  setTimeout(() => boot.remove(), 240);
+}
+
+route().then(keepPresence).catch(() => {
+  // Couldn't even start (no connection, or the database unreachable): say so
+  // on the start-up screen rather than leaving a black page.
+  const boot = document.querySelector("[data-boot]");
+  if (!boot) return;
+  boot.classList.add("is-stuck");
+  boot.querySelector("[data-boot-note]").textContent = "Couldn't reach RippleReview. Check your connection, then reload the page.";
+});

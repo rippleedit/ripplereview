@@ -479,6 +479,33 @@ body { overflow: hidden; }
 .signin-mark { height: 17px; width: auto; }
 
 .signin .form { gap: 1.6rem; }
+
+/* Starting up: the same lockup and glow as sign in, with a moving bar. It
+   waits a beat before fading in, so a quick start shows nothing at all. */
+.boot {
+  position: fixed;
+  z-index: 300;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1.6rem;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(58% 42% at 50% 10%, rgba(255, 61, 23, 0.13), transparent 72%),
+    var(--black);
+  animation: boot-in 240ms ease 350ms both;
+  transition: opacity 220ms ease;
+}
+.boot .signin-brand { margin-bottom: 0; }
+.boot-bar { position: relative; width: 156px; height: 2px; overflow: hidden; border-radius: 2px; background: var(--white-08); }
+.boot-bar i { position: absolute; top: 0; bottom: 0; left: 0; width: 38%; border-radius: 2px; background: var(--signal); animation: boot-slide 1.2s var(--ease-cut) infinite; }
+.boot-note { margin: 0; color: var(--white-52); font: 400 var(--fs-label) / 1.5 var(--font-mono); letter-spacing: 0.04em; text-align: center; opacity: 0; animation: boot-in 300ms ease 4s both; }
+.boot.is-stuck .boot-note { color: var(--white-76); opacity: 1; animation: none; }
+.boot.is-stuck .boot-bar { display: none; }
+.boot.is-leaving { opacity: 0; pointer-events: none; }
+@keyframes boot-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(265%); } }
 .signin .form input { font-size: 0.9375rem; }
 .signin-foot { margin-top: 2.2rem; color: var(--white-28); font-size: 0.78rem; text-align: center; line-height: 1.55; }
 .form-status:empty { display: none; }

@@ -31,6 +31,17 @@
     </filter>
   </svg>
 
+  <!-- Shown until the app has started, so a slow first load never looks like a
+       dead page. It fades in only if starting takes a moment; app.js removes it. -->
+  <div class="boot" data-boot role="status" aria-label="Loading RippleReview">
+    <div class="signin-brand">
+      <img class="signin-logo" src="assets/logotype.png" width="132" height="30" alt="RippleEdit">
+      <span class="side-brand-dot" aria-hidden="true"></span>
+      <img class="signin-mark" src="assets/ripplereview-mark.png?v=5" alt="Review">
+    </div>
+    <div class="boot-bar" aria-hidden="true"><i></i></div>
+    <p class="boot-note" data-boot-note>Waking things up. This can take a few seconds.</p>
+  </div>
   <div class="auth" data-auth hidden></div>
 
   <div class="app" data-shell hidden>
