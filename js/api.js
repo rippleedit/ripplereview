@@ -60,6 +60,8 @@ async function realApi() {
     shareLink: (fileId) => server("share_link", { fileId }),
     revokeShareLink: (fileId) => server("revoke_share_link", { fileId }),
     thumbs: async (paths) => (await server("thumbs", { paths })).thumbs,
+    // Title & thumbnail ideas shortlisted in RippleLab, by project folder name.
+    packaging: async (folder) => (await server("packaging", { folder })).ideas ?? {},
 
     async summary(fileIds) {
       if (!fileIds.length) return { comments: [], approvals: [] };

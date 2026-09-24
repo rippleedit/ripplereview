@@ -424,7 +424,66 @@ async function renderSpace(folder, only = null) {
 
   fillThumbs([...view.querySelectorAll("[data-thumb]")]);
   markSeen(library.client);
+  showIdeas(library);
 }
+
+// Title & thumbnail ideas ---------------------------------------------------
+
+// Ideas the studio shortlisted in RippleLab sit beside the project's videos
+// as one more card. No ideas, no card: nothing changes for anyone else.
+async function showIdeas(library) {
+  const ideas = await api.packaging(library.client).catch(() => ({}));
+  for (const [projectName, idea] of Object.entries(ideas ?? {})) {
+    const section = [...view.querySelectorAll(".project")].find((s) => s.dataset.project === projectName);
+    const grid = section?.querySelector(".video-grid");
+    if (!grid || grid.querySelector(".ideas-card") || !idea?.options?.length) continue;
+    grid.insertAdjacentHTML("beforeend", ideasCard(idea, parseTitle(projectName).title));
+  }
+}
+
+function ideasCard(idea, projectTitle) {
+  const shown = idea.options.slice(0, 3);
+  const more = idea.options.length - shown.length;
+  return `
+    <article class="video-card ideas-card">
+      <button class="video-thumb ideas-box" type="button" data-ideas-open="${esc(idea.url)}" data-ideas-title="${esc(projectTitle)}" aria-label="Open the title and thumbnail ideas">
+        ${shown.map((o) => `
+          <span class="ideas-row">
+            <span class="ideas-thumb">${o.image ? `<img src="${esc(o.image)}" alt="" loading="lazy">` : `<span class="ideas-concept">Concept</span>`}<b>${esc(o.letter)}</b></span>
+            <span class="ideas-title">${esc(o.title)}</span>
+          </span>`).join("")}
+        ${more > 0 ? `<span class="ideas-more">+${more} more</span>` : ""}
+      </button>
+      <div class="video-meta">
+        <h3>Title &amp; thumbnail ideas</h3>
+        <p class="video-sub">${idea.options.length} ${idea.options.length === 1 ? "option" : "options"} · tap to compare</p>
+      </div>
+    </article>`;
+}
+
+// The full ideas page (tabs, feeds, mix & match) opens right here, full screen.
+function openIdeas(url, title) {
+  const overlay = document.createElement("div");
+  overlay.className = "ideas-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Title and thumbnail ideas");
+  overlay.innerHTML = `
+    <div class="ideas-bar">
+      <span class="ideas-bar-title">Title &amp; thumbnail ideas<small>${esc(title)}</small></span>
+      <button class="icon-button" type="button" data-ideas-close aria-label="Close">${svg("close")}</button>
+    </div>
+    <iframe src="${esc(url)}" title="Title and thumbnail ideas" loading="eager"></iframe>`;
+  document.body.append(overlay);
+  const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = (event) => { if (event.key === "Escape") close(); };
+  overlay.querySelector("[data-ideas-close]").addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+}
+
+document.addEventListener("click", (event) => {
+  const open = event.target.closest("[data-ideas-open]");
+  if (open) openIdeas(open.dataset.ideasOpen, open.dataset.ideasTitle);
+});
 
 // Dropbox's own thumbnails first; where it has none, a frame from the video.
 async function fillThumbs(slots) {

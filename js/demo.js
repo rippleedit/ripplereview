@@ -143,6 +143,17 @@ export function demoApi() {
     revokeShareLink: () => wait({ revoked: 1 }),
     link: (fileId) => wait(CLIPS[allFiles().find((f) => f.id === fileId)?.clip ?? 0]),
     // The short gets a vertical still, the rest landscape ones.
+    // One project with ideas from RippleLab, the way the live function answers.
+    packaging: () => wait({
+      "NIL-11 Webinar Funnel": {
+        url: "data:text/html;charset=utf-8," + encodeURIComponent("<body style='margin:0;display:grid;place-items:center;height:100vh;background:#050505;color:#f2f0ea;font:16px system-ui'>RippleLab ideas page (demo)</body>"),
+        options: [
+          { letter: "A", title: "The Webinar That Sold Out in 48 Hours", image: THUMBS[0], mockup: true },
+          { letter: "B", title: "We Rebuilt the Funnel From Scratch", image: THUMBS[1], mockup: false },
+          { letter: "C", title: "Why Nobody Watched Our First Webinar", image: null, concept: "Empty webinar room, one chair lit", mockup: false },
+        ],
+      },
+    }),
     thumbs: (paths) => wait(Object.fromEntries(paths.map((p, i) => [p, p.includes("ms1") ? "assets/demo/clip-vertical.jpg" : THUMBS[(p.length + i) % THUMBS.length]]))),
 
     summary: (ids) => wait({

@@ -9,6 +9,9 @@
 //   RESEND_API_KEY         for the "client finished reviewing" email
 //   NOTIFY_TO              where those emails go (default info@ripple-edit.com)
 // Optional: NOTIFY_FROM, NOTIFY_REPLY_TO, NOTIFY_APPROVALS_TO, APP_URL.
+// Optional, for title & thumbnail ideas from RippleLab:
+//   RIPPLELAB_URL          e.g. https://ripplelab.morning-pine-3977.workers.dev
+//   RIPPLELAB_KEY          the shared key (RippleLab's REVIEW_API_KEY)
 // SUPABASE_URL and the service key are provided by Supabase automatically.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -601,6 +604,47 @@ async function removeLogin(profile: Profile, body: any) {
   return { ok: true };
 }
 
+// RippleLab ---------------------------------------------------------------
+
+// Title & thumbnail ideas the studio shortlisted in RippleLab, for the
+// projects in this person's own space. The job code in each project folder's
+// name ("SIM-20 - Don Toliver…") is the link. Only codes from folders this
+// person may see are ever asked about, so nobody can fish for another
+// client's ideas. If RippleLab is unset or unreachable: no ideas, no error.
+const JOB_CODE = /(?:^|[\s_-])([A-Za-z]{2,4})[-_ ]?(\d{1,3})(?=$|[\s_-])/;
+
+async function packaging(profile: Profile, requested: unknown) {
+  const base = (Deno.env.get("RIPPLELAB_URL") ?? "").replace(/\/+$/, "");
+  const key = Deno.env.get("RIPPLELAB_KEY") ?? "";
+  if (!base || !key) return { ideas: {} };
+  const folder = folderFor(profile, requested);
+  const byCode = new Map<string, string>();
+  for (const entry of await listAll(`/${folder}`, false)) {
+    if (entry[".tag"] !== "folder" || entry.name.startsWith("_")) continue;
+    const match = JOB_CODE.exec(entry.name);
+    // "NIL-09" and "NIL-9" are the same job: numbers without leading zeros.
+    if (match) byCode.set(`${match[1].toUpperCase()}-${Number(match[2])}`, entry.name);
+  }
+  if (!byCode.size) return { ideas: {} };
+  try {
+    const response = await fetch(`${base}/api/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-ripplelab-key": key },
+      body: JSON.stringify({ codes: [...byCode.keys()] }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!response.ok) return { ideas: {} };
+    const found = await response.json() as Record<string, unknown>;
+    // Keyed by project folder name, the way the app knows its projects.
+    const ideas: Record<string, unknown> = {};
+    for (const [code, value] of Object.entries(found)) if (byCode.has(code)) ideas[byCode.get(code)!] = value;
+    return { ideas };
+  } catch (error) {
+    console.error("RippleLab", error);
+    return { ideas: {} };
+  }
+}
+
 // Entry -------------------------------------------------------------------
 
 Deno.serve(async (req) => {
@@ -621,6 +665,7 @@ Deno.serve(async (req) => {
       case "share_link": return reply(200, await shareLink(profile, body.fileId));
       case "revoke_share_link": return reply(200, await revokeShareLink(profile, body.fileId));
       case "thumbs": return reply(200, await thumbs(profile, body.paths));
+      case "packaging": return reply(200, await packaging(profile, body.folder));
       case "notes_submitted": return reply(200, await notesSubmitted(profile, body));
       case "approval_changed": return reply(200, await approvalChanged(profile, body));
       case "set_profile":
