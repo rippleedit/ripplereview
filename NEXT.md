@@ -15,6 +15,17 @@ Around it sit three smaller ones:
 - Can an editor approve on the studio's behalf, or only the owner?
 - Does an editor get the "with you" queue filtered to their own work?
 
+## Built 24 Sep 2026: title & thumbnail ideas from RippleLab
+
+A project shows a "Title & thumbnail ideas" card beside its videos when the studio has shortlisted (★) or
+approved packages for that job in RippleLab (a separate, private tool). Studio and client both see it; the card
+opens RippleLab's live ideas page full screen. The server function's `packaging` action asks RippleLab only
+about job codes in the caller's own folders. Secrets `RIPPLELAB_URL` and `RIPPLELAB_KEY` were added on 24 Sep.
+
+Left open:
+- Final check with a real login: Sim → SIM-20 should show the card (RippleLab side verified).
+- If RippleLab moves to lab.ripple-edit.com, update `RIPPLELAB_URL`.
+
 ## Built 15 Sep 2026: master downloads and client teams
 
 Razz's ideas from 14 Sep, with what was decided before building:

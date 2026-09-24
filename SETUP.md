@@ -33,6 +33,10 @@ Done once. About 15 minutes. Do the steps in order.
    Replace the sample code with all of `supabase/functions/dropbox/index.ts` → **Deploy**.
 3. Open the function's settings and turn **off** "Enforce JWT verification" (the function checks logins itself).
 
+**Optional, RippleLab ideas:** add `RIPPLELAB_URL` (RippleLab's address) and `RIPPLELAB_KEY` (the key RippleLab
+calls `REVIEW_API_KEY`). Without them nothing changes; with them, projects linked in RippleLab show a
+"Title & thumbnail ideas" card.
+
 ## 4. Connect the website
 
 In Supabase → **Project Settings → API**, copy the **Project URL** and the **publishable** key
