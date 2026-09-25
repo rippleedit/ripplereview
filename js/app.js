@@ -441,18 +441,13 @@ async function showIdeas(library) {
   }
 }
 
+// Nothing of the ideas shows here: titles and thumbnails are a surprise until
+// the ideas page opens.
 function ideasCard(idea, projectTitle) {
-  const shown = idea.options.slice(0, 3);
-  const more = idea.options.length - shown.length;
   return `
     <article class="video-card ideas-card">
       <button class="video-thumb ideas-box" type="button" data-ideas-open="${esc(idea.url)}" data-ideas-title="${esc(projectTitle)}" aria-label="Open the title and thumbnail ideas">
-        ${shown.map((o) => `
-          <span class="ideas-row">
-            <span class="ideas-thumb">${o.image ? `<img src="${esc(o.image)}" alt="" loading="lazy">` : `<span class="ideas-concept">Concept</span>`}<b>${esc(o.letter)}</b></span>
-            <span class="ideas-title">${esc(o.title)}</span>
-          </span>`).join("")}
-        ${more > 0 ? `<span class="ideas-more">+${more} more</span>` : ""}
+        ${svg("image")}
       </button>
       <div class="video-meta">
         <h3>Title &amp; thumbnail ideas</h3>

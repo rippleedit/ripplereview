@@ -1472,32 +1472,14 @@ body { overflow: hidden; }
 .project.is-approved .project-name { color: var(--white-52); }
 
 /* Title & thumbnail ideas from RippleLab ----------------------------------
-   One more card in the project's row, the same height as the videos. It
-   lists up to three options; tapping it opens the full ideas page on top. */
+   One more card in the project's row, the same height as the videos. It shows
+   only a picture icon (the ideas are a surprise); tapping it opens the full
+   ideas page on top. */
 
 .ideas-card { --ar: 0.92; }
-.ideas-box {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.85rem;
-  background: var(--black-soft);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.ideas-row { display: grid; grid-template-columns: 44% minmax(0, 1fr); gap: 0.6rem; align-items: center; min-height: 0; }
-.ideas-thumb { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 5px; background: var(--panel); }
-.ideas-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.ideas-thumb b {
-  position: absolute; top: 4px; left: 4px; display: grid; place-items: center; width: 17px; height: 17px;
-  border-radius: 50%; background: var(--white); color: var(--black); font: 700 0.5625rem / 1 var(--font-sans);
-}
-.ideas-concept { display: grid; place-items: center; height: 100%; color: var(--white-28); font: 500 0.5625rem / 1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
-.ideas-title { display: -webkit-box; overflow: hidden; color: var(--white-76); font-size: 0.78rem; font-weight: 600; line-height: 1.3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-.ideas-more { color: var(--white-28); font: 500 var(--fs-label) / 1 var(--font-mono); letter-spacing: 0.06em; }
-.ideas-card:hover .ideas-title { color: var(--white); }
+.ideas-box { display: grid; place-items: center; background: var(--black-soft); color: inherit; cursor: pointer; }
+.ideas-box svg { width: 2rem; height: 2rem; fill: none; stroke: var(--white-28); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.15s; }
+.ideas-card:hover .ideas-box svg { stroke: var(--white-52); }
 
 .ideas-overlay {
   position: fixed; z-index: 260; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr);
